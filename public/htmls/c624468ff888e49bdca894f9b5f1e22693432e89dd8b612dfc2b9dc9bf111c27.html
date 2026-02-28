@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Property Board Game - Chance Added</title>
+    <style>
+        :root {
+            --board-bg: #cde6d0;
+            --center-bg: #fdfdfd;
+            --p1-color: #ff4444;
+            --p2-color: #4444ff;
+            --house-color: #4CAF50;
+            --hotel-color: #f44336;
+            --square-size: 32px;
+            --board-size: calc(var(--square-size) * 11 + 6px);
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background-color: #2c3e50;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        #game-container {
+            display: flex;
+            gap: 6px;
+            background: white;
+            padding: 6px;
+            border-radius: 4px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+            max-height: 100vh;
+            box-sizing: border-box;
+            align-items: flex-start;
+        }
+
+        /* --- ボード --- */
+        #board-wrapper {
+            position: relative;
+        }
+
+        #game-board {
+            display: grid;
+            grid-template-columns: repeat(11, var(--square-size));
+            grid-template-rows: repeat(11, var(--square-size));
+            gap: 1px;
+            background-color: #444;
+            border: 1px solid #444;
+        }
+
+        .square {
+            background-color: #f4f4f4;
+            font-size: 4.5px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        .square-center {
+            grid-column: 2 / 11;
+            grid-row: 2 / 11;
+            background-color: var(--center-bg);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 2px;
+            text-align: center;
+        }
+
+        .color-bar {
+            height: 5px;
+            width: 100%;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        .square-name {
+            font-weight: bold;
+            text-align: center;
+            margin-top: 0;
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            line-height: 0.9;
+            white-space: nowrap;
+            letter-spacing: -0.3px;
+            overflow: hidden;
+        }
+
+        .square-price {
+            text-align: center;
+            margin-bottom: 0;
+            color: #555;
+            font-size: 4px;
+            line-height: 1;
+        }
+
+        /* --- インジケータ類 --- */
+        .owner-indicator {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+        }
+
+        .house-container {
+            position: absolute;
+            top: 6px;
+            left: 0;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            gap: 1px;
+            pointer-events: none;
+        }
+
+        .house-icon {
+            width: 3px;
+            height: 3px;
+            background-color: var(--house-color);
+            border: 0.5px solid white;
+        }
+
+        .house-icon.hotel {
+            background-color: var(--hotel-color);
+            width: 5px;
+            height: 4px;
+        }
+
+        /* --- プレイヤー駒 --- */
+        .token {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            border: 1px solid white;
+            box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+            position: absolute;
+            z-index: 10;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        .token.p1 {
+            background-color: var(--p1-color);
+            top: 40%;
+            left: 40%;
+        }
+
+        .token.p2 {
+            background-color: var(--p2-color);
+            top: 40%;
+            right: 40%;
+        }
+
+        /* --- コントロールパネル --- */
+        #control-panel {
+            width: 180px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .player-card {
+            padding: 4px 6px;
+            border-radius: 3px;
+            background: #f0f0f0;
+            border-left: 3px solid #ccc;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .player-card.active {
+            background: #fff;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+            transform: scale(1.01);
+        }
+
+        .player-card.p1.active {
+            border-left-color: var(--p1-color);
+        }
+
+        .player-card.p2.active {
+            border-left-color: var(--p2-color);
+        }
+
+        .jail-badge {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            background: #333;
+            color: white;
+            padding: 0 2px;
+            font-size: 6px;
+            border-radius: 2px;
+            display: none;
+        }
+
+        .money-display {
+            font-size: 14px;
+            font-weight: bold;
+            font-family: 'Courier New', monospace;
+            line-height: 1;
+        }
+
+        #action-area {
+            background: #e8f4f8;
+            padding: 4px;
+            border-radius: 3px;
+            min-height: 60px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .btn {
+            padding: 3px 6px;
+            font-size: 10px;
+            border: none;
+            border-radius: 2px;
+            cursor: pointer;
+            font-weight: bold;
+            margin: 1px;
+            transition: background 0.2s;
+        }
+
+        .btn-roll {
+            background-color: #27ae60;
+            color: white;
+            width: 100%;
+            font-size: 11px;
+            padding: 5px;
+        }
+
+        .btn-buy {
+            background-color: #2980b9;
+            color: white;
+        }
+
+        .btn-pass {
+            background-color: #95a5a6;
+            color: white;
+        }
+
+        .btn-build {
+            background-color: #e67e22;
+            color: white;
+            width: 100%;
+            margin-top: 2px;
+        }
+
+        .btn-jail {
+            background-color: #34495e;
+            color: white;
+        }
+
+        .btn-chance {
+            background-color: #9b59b6;
+            color: white;
+            width: 100%;
+            padding: 5px;
+        }
+
+        .btn:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+        }
+
+        /* 建設用リスト */
+        #build-menu {
+            display: none;
+            background: #fff;
+            border: 1px solid #ccc;
+            padding: 2px;
+            border-radius: 2px;
+            margin-top: 2px;
+            width: 100%;
+            box-sizing: border-box;
+            max-height: 80px;
+            overflow-y: auto;
+        }
+
+        .build-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 2px;
+            border-bottom: 1px solid #eee;
+            font-size: 8px;
+            cursor: pointer;
+        }
+
+        .build-item:hover {
+            background-color: #f0f0f0;
+        }
+
+        #game-log {
+            flex-grow: 1;
+            background: #fafafa;
+            border: 1px solid #ddd;
+            border-radius: 2px;
+            padding: 4px;
+            overflow-y: auto;
+            height: 90px;
+            font-size: 8px;
+            font-family: monospace;
+        }
+
+        .log-entry {
+            margin-bottom: 1px;
+            border-bottom: 1px dashed #eee;
+            padding-bottom: 1px;
+        }
+
+        .log-p1 {
+            color: #c0392b;
+            font-weight: bold;
+        }
+
+        .log-p2 {
+            color: #2980b9;
+            font-weight: bold;
+        }
+
+        .log-chance {
+            color: #8e44ad;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="game-container"> <!-- ボードエリア -->
+        <div id="board-wrapper">
+            <div id="game-board"> <!-- センターエリア -->
+                <div class="square-center">
+                    <h1 style="font-size:12px; margin:0; color:#444; line-height:1;">PROPERTY<br>GAME</h1>
+                    <p style="font-size:7px; color:#888; margin:1px 0;">Chance Added</p>
+                    <div style="font-size:16px;">🏘️</div>
+                </div> <!-- JSでマスを生成 -->
+            </div>
+        </div> <!-- コントロールエリア -->
+        <div id="control-panel"> <!-- P1 ステータス -->
+            <div id="p1-card" class="player-card p1 active"> <span id="p1-jail-badge" class="jail-badge">刑務所</span>
+                <div style="font-weight:bold; color:var(--p1-color); font-size:9px;">PLAYER 1 (赤)</div>
+                <div class="money-display" id="p1-money">$1500</div>
+                <div style="font-size:8px;">所有: <span id="p1-props">0</span> / 家: <span id="p1-houses">0</span></div>
+            </div> <!-- P2 ステータス -->
+            <div id="p2-card" class="player-card p2"> <span id="p2-jail-badge" class="jail-badge">刑務所</span>
+                <div style="font-weight:bold; color:var(--p2-color); font-size:9px;">PLAYER 2 (青)</div>
+                <div class="money-display" id="p2-money">$1500</div>
+                <div style="font-size:8px;">所有: <span id="p2-props">0</span> / 家: <span id="p2-houses">0</span></div>
+            </div> <!-- アクションボタンエリア -->
+            <div id="action-area">
+                <p id="status-msg" style="font-size:9px; margin:2px 0;">Player 1 のターンです</p>
+                <div id="buttons"> <!-- 動的にボタン生成 --> </div>
+                <div id="build-menu"></div>
+            </div> <!-- ログ -->
+            <div id="game-log"></div>
+        </div>
+    </div>
+    <script> /* ========================================= 1. ゲームデータ定義 ========================================= */ const boardData = [{ index: 0, name: "START", type: "special", price: 0, rent: 0, group: "none" }, { index: 1, name: "下町A", type: "property", price: 60, rent: 2, group: "brown", houseCost: 50 }, { index: 2, name: "基金", type: "chance", price: 0, rent: 0, group: "none" }, { index: 3, name: "下町B", type: "property", price: 60, rent: 4, group: "brown", houseCost: 50 }, { index: 4, name: "所得税", type: "special", price: 0, rent: 0, group: "tax" }, { index: 5, name: "南鉄道", type: "railroad", price: 200, rent: 25, group: "railroad" }, { index: 6, name: "サブカルA", type: "property", price: 100, rent: 6, group: "lightblue", houseCost: 50 }, { index: 7, name: "チャンス", type: "chance", price: 0, rent: 0, group: "none" },
+        { index: 8, name: "サブカルB", type: "property", price: 100, rent: 6, group: "lightblue", houseCost: 50 }, { index: 9, name: "サブカルC", type: "property", price: 120, rent: 8, group: "lightblue", houseCost: 50 }, { index: 10, name: "刑務所", type: "special", price: 0, rent: 0, group: "none" }, { index: 11, name: "学生街A", type: "property", price: 140, rent: 10, group: "pink", houseCost: 100 }, { index: 12, name: "電力", type: "utility", price: 150, rent: 0, group: "utility" }, { index: 13, name: "学生街B", type: "property", price: 140, rent: 10, group: "pink", houseCost: 100 }, { index: 14, name: "学生街C", type: "property", price: 160, rent: 12, group: "pink", houseCost: 100 }, { index: 15, name: "西鉄道", type: "railroad", price: 200, rent: 25, group: "railroad" }, { index: 16, name: "繁華街A", type: "property", price: 180, rent: 14, group: "orange", houseCost: 100 }, { index: 17, name: "基金", type: "chance", price: 0, rent: 0, group: "none" }, { index: 18, name: "繁華街B", type: "property", price: 180, rent: 14, group: "orange", houseCost: 100 }, { index: 19, name: "繁華街C", type: "property", price: 200, rent: 16, group: "orange", houseCost: 100 }, { index: 20, name: "駐車場", type: "special", price: 0, rent: 0, group: "none" }, { index: 21, name: "ビジネスA", type: "property", price: 220, rent: 18, group: "red", houseCost: 150 }, { index: 22, name: "チャンス", type: "chance", price: 0, rent: 0, group: "none" }, { index: 23, name: "ビジネスB", type: "property", price: 220, rent: 18, group: "red", houseCost: 150 }, { index: 24, name: "ビジネスC", type: "property", price: 240, rent: 20, group: "red", houseCost: 150 }, { index: 25, name: "北鉄道", type: "railroad", price: 200, rent: 25, group: "railroad" }, { index: 26, name: "電気街A", type: "property", price: 260, rent: 22, group: "yellow", houseCost: 150 }, { index: 27, name: "電気街B", type: "property", price: 260, rent: 22, group: "yellow", houseCost: 150 }, { index: 28, name: "水道", type: "utility", price: 150, rent: 0, group: "utility" }, { index: 29, name: "電気街C", type: "property", price: 280, rent: 24, group: "yellow", houseCost: 150 }, { index: 30, name: "逮捕", type: "special", price: 0, rent: 0, group: "none" }, { index: 31, name: "高級A", type: "property", price: 300, rent: 26, group: "green", houseCost: 200 }, { index: 32, name: "高級B", type: "property", price: 300, rent: 26, group: "green", houseCost: 200 }, { index: 33, name: "基金", type: "chance", price: 0, rent: 0, group: "none" }, {
+            index: 34, name: "高級C", type: "property", price: 320, rent: 28, group: "green",
+            houseCost: 200
+        }, { index: 35, name: "東鉄道", type: "railroad", price: 200, rent: 25, group: "railroad" }, { index: 36, name: "チャンス", type: "chance", price: 0, rent: 0, group: "none" }, { index: 37, name: "一等地A", type: "property", price: 350, rent: 35, group: "darkblue", houseCost: 200 }, { index: 38, name: "物品税", type: "special", price: 0, rent: 0, group: "tax" }, { index: 39, name: "一等地B", type: "property", price: 400, rent: 50, group: "darkblue", houseCost: 200 }]; const groupColors = { brown: '#8d6e63', lightblue: '#81d4fa', pink: '#f48fb1', orange: '#ffcc80', red: '#ef5350', yellow: '#fff59d', green: '#a5d6a7', darkblue: '#64b5f6', railroad: '#bdbdbd', utility: '#cfd8dc', tax: '#9e9e9e', none: 'transparent' }; const groupCounts = {}; boardData.forEach(d => { if (d.group !== 'none' && d.group !== 'railroad' && d.group !== 'utility') { groupCounts[d.group] = (groupCounts[d.group] || 0) + 1; } }); /* --- チャンスカード定義 --- */ const chanceDeck = [{ text: "銀行より$200受取る", action: "money", value: 200 }, { text: "スピード違反の罰金$15", action: "money", value: -15 }, { text: "スタートへ戻る(受取$200)", action: "move", target: 0 }, { text: "刑務所へ行く", action: "jail" }, { text: "3マス戻る", action: "back", value: 3 }, { text: "家の修理費$100支払う", action: "money", value: -100 }, { text: "誕生日！各人から$50貰う", action: "collect", value: 50 }, { text: "宝くじ当選！$100受取る", action: "money", value: 100 }, { text: "物品税支払い$50", action: "money", value: -50 }, { text: "フリーパーキングへ移動", action: "move", target: 20 }]; /* ========================================= 2. ゲームクラス (ロジック統括) ========================================= */ class MonopolyGame {
+            constructor() {
+                this.turn = 1;
+                this.players = { 1: { id: 1, name: "Player 1", pos: 0, money: 1500, properties: [], inJail: false, jailTurns: 0, el: null }, 2: { id: 2, name: "Player 2", pos: 0, money: 1500, properties: [], inJail: false, jailTurns: 0, el: null } }; this.gridState = {}; this.isAnimating = false;
+            } init() { boardData.forEach(d => { this.gridState[d.index] = { owner: null, houses: 0 }; }); this.renderBoard(); this.createTokens(); this.updateUI(); this.setupTurnButtons(); this.log("ゲーム開始！Player 1 のターンです。"); } // --- 描画関連 --- 
+            renderBoard() {
+                const boardEl = document.getElementById('game-board'); boardData.forEach(data => {
+                    const sq = document.createElement('div'); sq.className = 'square'; sq.id = `sq-${data.index}`; let r, c; if (data.index === 0) { r = 11; c = 11; } else if (data.index < 10) { r = 11; c = 11 - data.index; } else if (data.index === 10) { r = 11; c = 1; } else if (data.index < 20) { r = 11 - (data.index - 10); c = 1; } else if (data.index === 20) { r = 1; c = 1; } else if (data.index < 30) { r = 1; c = 1 + (data.index - 20); } else if (data.index === 30) { r = 1; c = 11; } else { r = 1 + (data.index - 30); c = 11; } sq.style.gridRow = r; sq.style.gridColumn = c; const bar = document.createElement('div');
+                    bar.className = 'color-bar'; bar.style.backgroundColor = groupColors[data.group]; sq.appendChild(bar); const houseCont = document.createElement('div'); houseCont.className = 'house-container'; houseCont.id = `house-cont-${data.index}`; sq.appendChild(houseCont); const nameDiv = document.createElement('div'); nameDiv.className = 'square-name'; nameDiv.innerText = data.name; sq.appendChild(nameDiv); if (data.price > 0) { const priceDiv = document.createElement('div'); priceDiv.className = 'square-price'; priceDiv.innerText = `$${data.price}`; sq.appendChild(priceDiv); } const ownerInd = document.createElement('div'); ownerInd.className = 'owner-indicator'; ownerInd.id = `owner-ind-${data.index}`; sq.appendChild(ownerInd); boardEl.appendChild(sq);
+                });
+            } createTokens() { [1, 2].forEach(id => { const t = document.createElement('div'); t.className = `token p${id}`; document.getElementById('sq-0').appendChild(t); this.players[id].el = t; }); } setupTurnButtons() {
+                const btnArea = document.getElementById('buttons'); const p = this.players[this.turn];
+                document.getElementById('build-menu').style.display = 'none'; if (p.inJail) { let html = `<p style="font-size:9px; margin:2px;">【刑務所】残り${3 - p.jailTurns}ターン</p>`; html += `<button class="btn btn-roll" onclick="game.tryDiceJail()">🎲 ゾロ目を狙う</button>`; if (p.money >= 50) { html += `<button class="btn btn-jail" onclick="game.payBail()">💸 保釈金を払う ($50)</button>`; } btnArea.innerHTML = html; } else { btnArea.innerHTML = `<button id="btn-roll" class="btn btn-roll" onclick="game.rollDice()">🎲 サイコロを振る</button>`; if (this.canBuildAny(this.turn)) { btnArea.innerHTML += `<button class="btn btn-build" onclick="game.toggleBuildMenu()">🏠 建設メニューを開く</button>`; } }
+            } // --- 刑務所ロジック --- 
+            payBail() { const p = this.players[this.turn]; p.money -= 50; p.inJail = false; p.jailTurns = 0; this.log(`P${this.turn} は保釈金を払って出所した。`); this.updateUI(); this.setupTurnButtons(); } tryDiceJail() {
+                const d1 = Math.floor(Math.random() * 6) + 1; const d2 = Math.floor(Math.random() * 6) + 1; const p = this.players[this.turn]; this.updateStatus(`🎲 ${d1}, ${d2} ...`); if (d1 === d2) {
+                    this.log(`P${this.turn} ゾロ目！釈放されて進みます。`); p.inJail = false;
+                    p.jailTurns = 0; this.movePlayer(this.turn, d1 + d2);
+                } else { this.log(`P${this.turn} 失敗... (残り${2 - p.jailTurns}回)`); p.jailTurns++; if (p.jailTurns >= 3) { this.log(`P${this.turn} 強制釈放 ($50支払い)`); p.money -= 50; p.inJail = false; p.jailTurns = 0; this.movePlayer(this.turn, d1 + d2); } else { this.showEndTurnButton(); } }
+            } goToJail(playerId) { const p = this.players[playerId]; this.log(`P${playerId} は刑務所へ送られた！`); p.pos = 10; p.inJail = true; p.jailTurns = 0; document.getElementById(`sq-10`).appendChild(p.el); this.updateUI(); this.showEndTurnButton(); } // --- 移動ロジック --- 
+            rollDice() { if (this.isAnimating) return; this.isAnimating = true; document.getElementById('buttons').innerHTML = `<p style="font-size:9px;">移動中...</p>`; document.getElementById('build-menu').style.display = 'none'; const d1 = Math.floor(Math.random() * 6) + 1; const d2 = Math.floor(Math.random() * 6) + 1; const total = d1 + d2; this.updateStatus(`🎲 ${d1} + ${d2} = ${total} マス進みます`); this.movePlayer(this.turn, total); }
+            movePlayer(playerId, steps) { const p = this.players[playerId]; let stepsLeft = steps; const stepInterval = setInterval(() => { p.pos = (p.pos + 1) % 40; if (p.pos === 0) { p.money += 200; this.log(`P${playerId} スタート通過: +$200`); this.updateUI(); } document.getElementById(`sq-${p.pos}`).appendChild(p.el); stepsLeft--; if (stepsLeft <= 0) { clearInterval(stepInterval); this.handleSquareArrival(playerId); } }, 100); } handleSquareArrival(playerId) {
+                this.isAnimating = false; const p = this.players[playerId]; const sq = boardData[p.pos]; this.updateStatus(`${sq.name} に到着しました。`); if (p.pos === 30) { setTimeout(() => this.goToJail(playerId), 500); return; } if (sq.type === 'chance') { this.showChanceButton(); return; } if (['property', 'railroad', 'utility'].includes(sq.type)) {
+                    const state = this.gridState[p.pos]; if (state.owner === null) {
+                        if (p.money >= sq.price) {
+                            this.showBuyOption(sq);
+                        } else { this.log(`P${playerId}は資金不足で購入不可。`); this.showEndTurnButton(); }
+                    } else if (state.owner === playerId) { this.updateStatus("あなたの土地です。"); this.showEndTurnButton(); } else { this.payRent(playerId, state.owner, sq); }
+                } else if (sq.group === 'tax') { const tax = 200; p.money -= tax; this.log(`P${playerId} は税金 $${tax} を支払った。`); this.updateUI(); this.showEndTurnButton(); } else { this.showEndTurnButton(); }
+            } // --- チャンスカード処理 --- 
+            showChanceButton() { const btnArea = document.getElementById('buttons'); btnArea.innerHTML = `<button class="btn btn-chance" onclick="game.drawChanceCard()">🎴 カードを引く</button>`; this.updateStatus("チャンスカードを引いてください"); } drawChanceCard() {
+                const p = this.players[this.turn]; // ランダムに1枚選ぶ 
+                const card = chanceDeck[Math.floor(Math.random() * chanceDeck.length)]; this.log(`<span class="log-chance">🎴 ${card.text}</span>`); this.updateStatus(`カード: ${card.text}`); // 効果実行 
+                if (card.action === 'money') {
+                    p.money += card.value; this.updateUI();
+                    this.showEndTurnButton();
+                } else if (card.action === 'move') {
+                    p.pos = card.target; if (card.target === 0) p.money += 200; // スタートへ移動時のボーナス(カードにより重複あるが簡易実装) 
+                    document.getElementById(`sq-${p.pos}`).appendChild(p.el); // 移動先でのイベントは簡易化のため発生させない（無限ループ防止） 
+                    this.updateUI(); this.showEndTurnButton();
+                } else if (card.action === 'jail') { this.goToJail(this.turn); } else if (card.action === 'back') {
+                    p.pos = (p.pos - card.value + 40) % 40; document.getElementById(`sq-${p.pos}`).appendChild(p.el); this.handleSquareArrival(this.turn); // 戻った先でイベント発生させる 
+                } else if (card.action === 'collect') { const opponentId = (this.turn === 1) ? 2 : 1; this.players[opponentId].money -= card.value; p.money += card.value; this.log(`P${opponentId} から $${card.value} 徴収した`); this.updateUI(); this.showEndTurnButton(); }
+            } // --- 建設機能 --- 
+            canBuildAny(playerId) { const p = this.players[playerId]; for (let group in groupCounts) { if (this.checkMonopoly(playerId, group)) { const props = boardData.filter(d => d.group === group); if (props.some(d => this.gridState[d.index].houses < 5)) { return true; } } } return false; } checkMonopoly(playerId, group) { const props = boardData.filter(d => d.group === group); return props.every(d => this.gridState[d.index].owner === playerId); }
+            toggleBuildMenu() { const menu = document.getElementById('build-menu'); if (menu.style.display === 'block') { menu.style.display = 'none'; return; } let html = `<strong>建設可能な土地 ($は建設費)</strong><br>`; let hasItem = false; const p = this.players[this.turn]; for (let group in groupCounts) { if (this.checkMonopoly(this.turn, group)) { const props = boardData.filter(d => d.group === group); props.forEach(d => { const s = this.gridState[d.index]; if (s.houses < 5) { const cost = d.houseCost; const canAfford = p.money >= cost; const houseLabel = s.houses === 4 ? "ホテルへ改装" : `家${s.houses + 1}軒目`; if (canAfford) { hasItem = true; html += `<div class="build-item" onclick="game.buildHouse(${d.index})"> <span style="color:${groupColors[group]}">■</span> ${d.name} (${houseLabel}) <b>$${cost}</b> </div>`; } } }); } } if (!hasItem) html += `<div style="font-size:10px; color:#888;">建設できる土地または資金がありません</div>`; menu.innerHTML = html; menu.style.display = 'block'; } buildHouse(index) {
+                const p = this.players[this.turn];
+                const d = boardData[index]; const s = this.gridState[index]; p.money -= d.houseCost; s.houses++; let type = s.houses === 5 ? "ホテル" : "家"; this.log(`P${this.turn} は ${d.name} に${type}を建てた (-$${d.houseCost})`); this.updateUI(); this.renderHouse(index); this.toggleBuildMenu();
+            } renderHouse(index) { const cont = document.getElementById(`house-cont-${index}`); const s = this.gridState[index]; cont.innerHTML = ''; if (s.houses === 5) { const h = document.createElement('div'); h.className = 'house-icon hotel'; cont.appendChild(h); } else { for (let i = 0; i < s.houses; i++) { const h = document.createElement('div'); h.className = 'house-icon'; cont.appendChild(h); } } } // --- 家賃計算 --- 
+            payRent(debtorId, ownerId, sq) {
+                const s = this.gridState[sq.index]; let rent = sq.rent; let multiplier = 1; if (['property'].includes(sq.type)) {
+                    if (s.houses > 0) { multiplier = 1 + (s.houses * 5); } else if (this.checkMonopoly(ownerId, sq.group)) {
+                        multiplier = 2; this.log("独占ボーナスで家賃2倍！");
+                    }
+                } let finalRent = rent * multiplier; this.players[debtorId].money -= finalRent; this.players[ownerId].money += finalRent; this.log(`P${debtorId} は P${ownerId} に家賃 $${finalRent} 支払った`); this.updateUI(); this.showEndTurnButton();
+            } // --- ターン管理 --- 
+            showBuyOption(sq) { const btnArea = document.getElementById('buttons'); btnArea.innerHTML = ` <button class="btn btn-buy" onclick="game.buyProperty()">買う ($${sq.price})</button> <button class="btn btn-pass" onclick="game.passTurn()">買わない</button> `; this.updateStatus(`${sq.name} を購入しますか？`); } buyProperty() { const p = this.players[this.turn]; const sq = boardData[p.pos]; p.money -= sq.price; p.properties.push(p.pos); this.gridState[p.pos].owner = this.turn; const indicator = document.getElementById(`owner-ind-${p.pos}`); indicator.style.backgroundColor = (this.turn === 1) ? 'var(--p1-color)' : 'var(--p2-color)'; this.log(`P${this.turn} が ${sq.name} を購入しました。`); this.updateUI(); this.showEndTurnButton(); } passTurn() {
+                this.log(`P${this.turn} は購入を見送りました。`); this.showEndTurnButton();
+            } showEndTurnButton() { const btnArea = document.getElementById('buttons'); let html = `<button class="btn btn-roll" onclick="game.nextTurnTrigger()">次のターンへ</button>`; if (this.canBuildAny(this.turn)) { html += `<button class="btn btn-build" onclick="game.toggleBuildMenu()">🏠 建設メニューを開く</button>`; } btnArea.innerHTML = html; } nextTurnTrigger() { this.turn = (this.turn === 1) ? 2 : 1; this.updateStatus(`Player ${this.turn} のターンです`); document.getElementById('p1-card').classList.toggle('active'); document.getElementById('p2-card').classList.toggle('active'); this.setupTurnButtons(); } /* --- UI更新 --- */ updateUI() { for (let id of [1, 2]) { const p = this.players[id]; document.getElementById(`p${id}-money`).innerText = `$${p.money}`; document.getElementById(`p${id}-props`).innerText = p.properties.length; let totalHouses = 0; p.properties.forEach(idx => totalHouses += this.gridState[idx].houses); document.getElementById(`p${id}-houses`).innerText = totalHouses; document.getElementById(`p${id}-money`).style.color = (p.money < 0) ? 'red' : 'inherit'; document.getElementById(`p${id}-jail-badge`).style.display = p.inJail ? 'block' : 'none'; } } updateStatus(msg) {
+                document.getElementById('status-msg').innerText = msg;
+            } log(msg) { const logEl = document.getElementById('game-log'); const entry = document.createElement('div'); entry.className = 'log-entry'; let formattedMsg = msg.replace('P1', '<span class="log-p1">P1</span>').replace('P2', '<span class="log-p2">P2</span>'); entry.innerHTML = formattedMsg; logEl.prepend(entry); }
+        } const game = new MonopolyGame(); window.onload = () => game.init(); </script>
+</body>
+
+</html>

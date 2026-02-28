@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <title>3x3 スライドパズル</title>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        .stats {
+            margin-bottom: 10px;
+            font-size: 1.2rem;
+        }
+
+        /* パズルの外枠 */
+        .puzzle-board {
+            display: grid;
+            grid-template-columns: repeat(3, 100px);
+            grid-template-rows: repeat(3, 100px);
+            gap: 10px;
+            background-color: #bbada0;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        /* タイルの基本設定 */
+        .tile {
+            width: 100px;
+            height: 100px;
+            background-color: #eee4da;
+            color: #776e65;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            font-weight: bold;
+            border-radius: 4px;
+            cursor: pointer;
+            user-select: none;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+
+        /* 正解の場所にあるタイルの色 */
+        .tile.correct {
+            background-color: #edc22e;
+            color: #f9f6f2;
+        }
+
+        /* 空きマスの設定 */
+        .tile.empty {
+            background-color: rgba(238, 228, 218, 0.35);
+            cursor: default;
+        }
+
+        .controls {
+            margin-top: 20px;
+        }
+
+        button {
+            padding: 10px 25px;
+            font-size: 1rem;
+            cursor: pointer;
+            background-color: #8f7a66;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+
+        button:hover {
+            background-color: #7f6a56;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>3x3 Slide Puzzle</h1>
+    <div class="stats">手数: <span id="move-count">0</span></div>
+    <div class="puzzle-board" id="board"></div>
+    <div class="controls">
+        <button onclick="resetGame()">リセット</button>
+    </div>
+    <script>
+        const boardElement = document.getElementById('board');
+        const moveDisplay = document.getElementById('move-count');
+        let tiles = []; // タイルの数値を管理する配列
+        let moves = 0;
+        // ゲームの初期化
+        function initGame() {
+            moves = 0;
+            updateStats();
+            // 1~8の数字と空き(0)を作成
+            tiles = [1, 2, 3, 4, 5, 6, 7, 8, 0];
+            shuffle(tiles);
+            render();
+        }
+        // シャッフル処理（スライドパズルとして解ける状態にする）
+        function shuffle(array) {
+            for (let i = 0; i < 200; i++) {
+                const emptyIndex = array.indexOf(0);
+                const neighbors = getNeighbors(emptyIndex);
+                const randomNeighbor = neighbors[Math.floor(Math.random() * neighbors.length)];
+                [array[emptyIndex], array[randomNeighbor]] = [array[randomNeighbor], array[emptyIndex]];
+            }
+        }
+        // 隣接するマスのインデックスを取得
+        function getNeighbors(index) {
+            const neighbors = [];
+            const row = Math.floor(index / 3);
+            const col = index % 3;
+            if (row > 0) neighbors.push(index - 3); // 上
+            if (row < 2) neighbors.push(index + 3); // 下
+            if (col > 0) neighbors.push(index - 1); // 左
+            if (col < 2) neighbors.push(index + 1); // 右
+            return neighbors;
+        }
+        // 画面の描画
+        function render() {
+            boardElement.innerHTML = '';
+            tiles.forEach((value, index) => {
+                const tileDiv = document.createElement('div');
+                tileDiv.classList.add('tile');
+                if (value === 0) {
+                    tileDiv.classList.add('empty');
+                    tileDiv.innerText = '';
+                } else {
+                    tileDiv.innerText = value;
+                    // 正解の位置（数値とインデックス+1が一致）ならクラス付与
+                    if (value === index + 1) {
+                        tileDiv.classList.add('correct');
+                    }
+                    tileDiv.onclick = () => moveTile(index);
+                }
+                boardElement.appendChild(tileDiv);
+            });
+        }
+        // タイルの移動処理
+        function moveTile(index) {
+            const emptyIndex = tiles.indexOf(0);
+            const neighbors = getNeighbors(index);
+            // クリックしたマスの隣に空きがあれば入れ替え
+            if (neighbors.includes(emptyIndex)) {
+                [tiles[index], tiles[emptyIndex]] = [tiles[emptyIndex], tiles[index]];
+                moves++;
+                updateStats();
+                render();
+                checkWin();
+            }
+        }
+        function updateStats() {
+            moveDisplay.innerText = moves;
+        }
+        // クリア判定
+        function checkWin() {
+            const winState = [1, 2, 3, 4, 5, 6, 7, 8, 0];
+            if (JSON.stringify(tiles) === JSON.stringify(winState)) {
+                setTimeout(() => {
+                    alert(`クリア！\n手数: ${moves}`);
+                }, 100);
+            }
+        }
+        function resetGame() {
+            initGame();
+        }
+        // 初回起動
+        initGame();
+    </script>
+</body>
+
+</html>

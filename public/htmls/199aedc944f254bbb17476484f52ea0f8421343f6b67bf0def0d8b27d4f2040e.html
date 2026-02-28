@@ -1,0 +1,211 @@
+<DOCTYPE html>
+    <html lang="ja">
+
+    <head>
+        <meta charset="UTF-8">
+        <title>Aikatsu! Online Stage</title>
+        <style>
+            :root {
+                --red: #ff4d4d;
+                --yellow: #ffd700;
+                --green: #40ff40;
+                --pink: #ff69b4;
+            }
+
+            body {
+                background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                height: 100vh;
+                margin: 0;
+                overflow: hidden;
+                font-family: 'Arial Rounded MT Bold', sans-serif;
+            }
+
+            .sparkle {
+                position: absolute;
+                width: 15px;
+                height: 15px;
+                background: white;
+                clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+                animation: float 4s linear infinite;
+                opacity: .4;
+            }
+
+            @keyframes float {
+                0% {
+                    transform: translateY(110vh) rotate(0deg);
+                }
+
+                100% {
+                    transform: translateY(-10vh) rotate(360deg);
+                }
+            }
+
+            #game-container {
+                position: relative;
+                width: 360px;
+                height: 550px;
+                background: rgba(255, 255, 255, .2);
+                border: 6px solid white;
+                border-radius: 40px;
+                box-shadow: 0 0 30px var(--pink);
+                overflow: hidden;
+                backdrop-filter: blur(10px);
+            }
+
+            #ui {
+                position: absolute;
+                top: 20px;
+                width: 100%;
+                text-align: center;
+                color: white;
+                z-index: 10;
+            }
+
+            #score {
+                font-size: 32px;
+            }
+
+            #combo {
+                font-size: 24px;
+                color: var(--yellow);
+            }
+
+            .lane {
+                position: absolute;
+                top: 0;
+                width: 33.3%;
+                height: 100%;
+            }
+
+            .note {
+                position: absolute;
+                width: 60px;
+                height: 60px;
+                left: 50%;
+                transform: translateX(-50%);
+                clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+                filter: drop-shadow(0 0 10px white);
+            }
+
+            #target-line {
+                position: absolute;
+                bottom: 100px;
+                width: 100%;
+                height: 4px;
+                background: white;
+            }
+
+            #controls {
+                display: flex;
+                gap: 20px;
+                margin-top: 20px;
+            }
+
+            .btn {
+                width: 80px;
+                height: 80px;
+                border-radius: 50%;
+                border: 5px solid white;
+                cursor: pointer;
+            }
+
+            .btn-red {
+                background: var(--red);
+            }
+
+            .btn-yellow {
+                background: var(--yellow);
+            }
+
+            .btn-green {
+                background: var(--green);
+            }
+
+            #judgment {
+                position: absolute;
+                top: 45%;
+                width: 100%;
+                text-align: center;
+                font-size: 40px;
+                color: white;
+                opacity: 0;
+            }
+
+            .pop {
+                animation: pop .3s ease-out;
+            }
+
+            @keyframes pop {
+                0% {
+                    transform: scale(.5);
+                    opacity: 0;
+                }
+
+                100% {
+                    transform: scale(1.2);
+                    opacity: 1;
+                }
+            }
+
+            #overlay {
+                position: absolute;
+                inset: 0;
+                background: rgba(255, 105, 180, .9);
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                color: white;
+                z-index: 100;
+            }
+
+            .start-btn {
+                background: white;
+                color: var(--pink);
+                border: none;
+                padding: 15px 30px;
+                font-size: 20px;
+                border-radius: 50px;
+                cursor: pointer;
+            }
+        </style>
+    </head>
+
+    <body>
+        <div id="game-container">
+            <div id="overlay">
+                <h1>AIKATSU! STAGE</h1>
+                <p>MISS 5回で終了</p> <button class="start-btn" onclick="startGame()">START</button>
+            </div>
+            <div id="ui">
+                <div id="score">000000</div>
+                <div id="combo">0 COMBO</div>
+            </div>
+            <div id="judgment"></div>
+            <div id="target-line"></div>
+            <div class="lane" style="left:0"></div>
+            <div class="lane" style="left:33.3%"></div>
+            <div class="lane" style="left:66.6%"></div>
+        </div>
+        <div id="controls">
+            <div class="btn btn-red" onclick="hit(0)"></div>
+            <div class="btn btn-yellow" onclick="hit(1)"></div>
+            <div class="btn btn-green" onclick="hit(2)"></div>
+        </div>
+        <script> const lanes = document.querySelectorAll('.lane'); const scoreDisp = document.getElementById('score'); const comboDisp = document.getElementById('combo'); const judgment = document.getElementById('judgment'); const overlay = document.getElementById('overlay'); // キーボード操作 
+            window.addEventListener('keydown', (e) => {
+                if (e.repeat) return; // 押しっぱなし防止 
+                if (e.key === 'ArrowLeft') hit(0); if (e.key === 'ArrowDown') hit(1); if (e.key === 'ArrowRight') hit(2);
+            });
+            let audio; let score = 0, combo = 0, miss = 0, isGameOver = false; let activeNotes = [[], [], []]; let gameInterval, sparkleInterval; const colors = ['var(--red)', 'var(--yellow)', 'var(--green)']; function startGame() { overlay.style.display = 'none'; audio = new Audio("https://maoudamashii.jokersounds.com/music/bgm/mp3/bgm_maoudamashii_neorock83.mp3"); audio.loop = true; audio.volume = 0.7; audio.play(); gameInterval = setInterval(spawnNote, 375); sparkleInterval = setInterval(() => { const s = document.createElement('div'); s.className = 'sparkle'; s.style.left = Math.random() * 100 + 'vw'; document.body.appendChild(s); setTimeout(() => s.remove(), 4000); }, 300); } function spawnNote() {
+                if (Math.random() > 0.7) return; const idx = Math.floor(Math.random() * 3); const note = document.createElement('div'); note.className = 'note'; note.style.backgroundColor = colors[idx]; note.style.top = '-60px'; lanes[idx].appendChild(note); let pos = -60; const timer = setInterval(() => { pos += 7; note.style.top = pos + 'px'; if (pos > 550) { clearInterval(timer); note.remove(); activeNotes[idx].shift(); miss++; combo = 0; showJudge("MISS"); checkGameOver(); updateUI(); } }, 16);
+                activeNotes[idx].push({ el: note, timer });
+            } function hit(idx) { if (isGameOver) return; if (activeNotes[idx].length === 0) { miss++; combo = 0; showJudge("MISS"); checkGameOver(); updateUI(); return; } const n = activeNotes[idx][0]; const diff = Math.abs(parseInt(n.el.style.top) - 440); if (diff < 45) { score += 1000 + combo * 50; combo++; showJudge("PERFECT"); } else if (diff < 85) { score += 500; combo++; showJudge("GOOD"); } else return; clearInterval(n.timer); n.el.remove(); activeNotes[idx].shift(); updateUI(); } function updateUI() { scoreDisp.textContent = score.toString().padStart(6, '0'); comboDisp.textContent = combo + " COMBO"; } function showJudge(t) { judgment.textContent = t; judgment.classList.remove('pop'); void judgment.offsetWidth; judgment.classList.add('pop'); judgment.style.opacity = 1; setTimeout(() => judgment.style.opacity = 0, 400); } function checkGameOver() { if (miss >= 5 && !isGameOver) { isGameOver = true; clearInterval(gameInterval); clearInterval(sparkleInterval); audio.pause(); overlay.innerHTML = `<h1>GAME OVER</h1><p>SCORE:${score}</p> <button class="start-btn" onclick="location.reload()">RETRY</button>`; overlay.style.display = 'flex'; } }
+        </script>
+    </body>
+
+    </html>

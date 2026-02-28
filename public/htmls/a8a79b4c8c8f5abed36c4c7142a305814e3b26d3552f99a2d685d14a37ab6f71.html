@@ -1,0 +1,897 @@
+<!doctype html>
+<html lang="ja">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>TRPG シーン画像ジェネレータ（boss:指定 / リアル風景）</title>
+    <style>
+        :root {
+            --bg: #0b0f18;
+            --panel: #121a2a;
+            --line: #23314f;
+            --txt: #e7eefc;
+            --muted: #a9b6d3;
+        }
+
+        body {
+            margin: 0;
+            font-family: system-ui, -apple-system, "Segoe UI", "Noto Sans JP", sans-serif;
+            background: var(--bg);
+            color: var(--txt);
+        }
+
+        .wrap {
+            display: grid;
+            grid-template-columns: 420px 1fr;
+            min-height: 100vh;
+        }
+
+        .left {
+            padding: 16px;
+            border-right: 1px solid var(--line);
+            background: linear-gradient(180deg, rgba(255, 255, 255, .02), rgba(255, 255, 255, 0));
+        }
+
+        .right {
+            padding: 16px;
+        }
+
+        h1 {
+            font-size: 18px;
+            margin: 0 0 10px;
+        }
+
+        .hint {
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.5;
+            margin-bottom: 12px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 128px;
+            background: var(--panel);
+            color: var(--txt);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 10px;
+            resize: vertical;
+        }
+
+        .row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin: 10px 0;
+            align-items: center;
+        }
+
+        button {
+            background: var(--panel);
+            color: var(--txt);
+            border: 1px solid var(--line);
+            padding: 9px 10px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+        }
+
+        button:hover {
+            border-color: #3b5286;
+        }
+
+        button.primary {
+            background: rgba(120, 166, 255, .18);
+            border-color: rgba(120, 166, 255, .55);
+        }
+
+        .card {
+            background: rgba(255, 255, 255, .03);
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            padding: 12px;
+        }
+
+        .kv {
+            display: grid;
+            grid-template-columns: 110px 1fr;
+            gap: 6px 10px;
+            font-size: 13px;
+        }
+
+        .k {
+            color: var(--muted);
+        }
+
+        .stage {
+            background: radial-gradient(1200px 600px at 50% 0%, rgba(120, 166, 255, .10), transparent 65%);
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            overflow: hidden;
+            min-height: 560px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .svgWrap {
+            width: min(980px, 100%);
+            aspect-ratio: 16/9;
+        }
+
+        code {
+            background: rgba(255, 255, 255, .06);
+            padding: 2px 6px;
+            border-radius: 8px;
+        }
+
+        .assetBox {
+            margin-top: 10px;
+        }
+
+        .assetTitle {
+            font-size: 12px;
+            color: var(--muted);
+            margin: 10px 0 6px;
+        }
+
+        .assetRow {
+            display: grid;
+            grid-template-columns: 90px 1fr auto;
+            gap: 8px;
+            align-items: center;
+            margin: 6px 0;
+        }
+
+        .assetRow label {
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .assetRow input[type="file"] {
+            width: 100%;
+        }
+
+        .small {
+            font-size: 11px;
+            color: var(--muted);
+            line-height: 1.4;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <div class="left">
+            <h1>TRPG シーン画像ジェネレータ（boss:指定 / リアル風景）</h1>
+            <div class="hint">
+                例：<code>/scene 森 夜 雨 boss:ミュウツー スライム10 ゴブリン8 ミュウツー1</code><br>
+                <code>boss:敵名</code> を入れると、その敵をボスとして「奥・中央・大きく」1体配置します（最優先）。<br>
+                敵：ゴブリン/アンデッド/ドラゴン/盗賊/スライム/ミュウツー（数字で数指定）
+            </div>
+
+            <textarea id="cmd">/scene 森 夜 雨 boss:ミュウツー スライム10 ゴブリン8 ミュウツー1</textarea>
+
+            <div class="row">
+                <button class="primary" id="gen">生成</button>
+                <button id="rand">ランダム</button>
+                <button id="export">SVGを書き出し</button>
+            </div>
+
+            <div class="row">
+                <button data-preset="/scene 洞窟 夜 霧 boss:ドラゴン ドラゴン1 スライム12">洞窟 boss:ドラゴン + スライム</button>
+                <button data-preset="/scene 神殿 昼 雪 boss:ミュウツー ミュウツー1 盗賊10 ゴブリン6">神殿 boss:ミュウツー</button>
+                <button data-preset="/scene 森 夕 晴 boss:スライム スライム1 スライム16">森 boss:スライム</button>
+                <button data-preset="/scene 酒場 夜 雨 boss:盗賊 盗賊1 盗賊14 スライム6">酒場 boss:盗賊</button>
+            </div>
+
+            <div class="assetBox card">
+                <div class="assetTitle">敵画像の差し替え（各敵ごとにアップロードOK / 保存されます）</div>
+
+                <div class="assetRow"><label>ゴブリン</label><input type="file" id="file_goblin" accept="image/*"><button
+                        id="reset_goblin">リセット</button></div>
+                <div class="assetRow"><label>アンデッド</label><input type="file" id="file_undead" accept="image/*"><button
+                        id="reset_undead">リセット</button></div>
+                <div class="assetRow"><label>盗賊</label><input type="file" id="file_bandit" accept="image/*"><button
+                        id="reset_bandit">リセット</button></div>
+                <div class="assetRow"><label>ドラゴン</label><input type="file" id="file_dragon" accept="image/*"><button
+                        id="reset_dragon">リセット</button></div>
+                <div class="assetRow"><label>スライム</label><input type="file" id="file_slime" accept="image/*"><button
+                        id="reset_slime">リセット</button></div>
+                <div class="assetRow"><label>ミュウツー</label><input type="file" id="file_mewtwo" accept="image/*"><button
+                        id="reset_mewtwo">リセット</button></div>
+
+                <div class="small">
+                    ※画像はDataURLとしてlocalStorageに保存されます（容量制限あり）。<br>
+                    ※大きすぎる画像は保存失敗するので、できれば圧縮して下さい。
+                </div>
+            </div>
+
+            <div class="card" style="margin-top:10px;">
+                <div class="kv">
+                    <div class="k">場所</div>
+                    <div id="vLoc">-</div>
+                    <div class="k">時間</div>
+                    <div id="vTime">-</div>
+                    <div class="k">天気</div>
+                    <div id="vWeather">-</div>
+                    <div class="k">敵</div>
+                    <div id="vEnemy">-</div>
+                    <div class="k">ボス</div>
+                    <div id="vBoss">-</div>
+                    <div class="k">シード</div>
+                    <div id="vSeed">-</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="right">
+            <div class="stage">
+                <div class="svgWrap" id="stage"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /** ===== シード付き乱数 ===== */
+        function mulberry32(a) {
+            return function () {
+                let t = a += 0x6D2B79F5;
+                t = Math.imul(t ^ (t >>> 15), t | 1);
+                t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+                return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+            }
+        }
+        function hash32(str) {
+            let h = 2166136261;
+            for (let i = 0; i < str.length; i++) {
+                h ^= str.charCodeAt(i);
+                h = Math.imul(h, 16777619);
+            }
+            return h >>> 0;
+        }
+
+        /** ===== 辞書 ===== */
+        const LOCS = ["森", "酒場", "洞窟", "街", "神殿", "海岸"];
+        const TIMES = ["昼", "夕", "夜"];
+        const WEATHERS = ["晴", "雨", "霧", "雪"];
+        const ENEMIES = ["ゴブリン", "アンデッド", "ドラゴン", "盗賊", "スライム", "ミュウツー"];
+        const BOSS_PRIORITY = ["ミュウツー", "ドラゴン", "アンデッド", "盗賊", "スライム", "ゴブリン"];
+
+        /** ===== デフォルト敵画像（必要ならURL差し替えOK） =====
+         *  ミュウツーはプレースホルダー。アップロードで差し替え推奨。
+         */
+        const DEFAULT_ASSETS = {
+            "ゴブリン": { type: "single", url: "https://opengameart.org/sites/default/files/spritesheet-goblin-32x32-alpha.png" },
+            "アンデッド": {
+                type: "sheet",
+                url: "https://opengameart.org/sites/default/files/zombie_typeA_walk_spritesheet.png",
+                frameW: 128, frameH: 128,
+                cols: 4, rows: 1,
+                defaultFrame: 0
+            },
+            "盗賊": { type: "single", url: "https://opengameart.org/sites/default/files/undertaker_1.png" },
+            "ドラゴン": { type: "single", url: "https://opengameart.org/sites/default/files/side%20view%20dragon_0.png" },
+            "スライム": { type: "single", url: "https://opengameart.org/sites/default/files/slime_25.png" },
+            "ミュウツー": { type: "single", url: "https://dummyimage.com/512x512/2a3f7a/ffffff.png&text=Mewtwo" }
+        };
+
+        const ENEMY_ASSETS = JSON.parse(JSON.stringify(DEFAULT_ASSETS));
+
+        /** ===== 画像アップロード（敵ごと差し替え） ===== */
+        function storageKey(enemyName) { return `custom_enemy_url_v3_${enemyName}`; }
+
+        function applyCustomAssetsFromStorage() {
+            for (const name of Object.keys(ENEMY_ASSETS)) {
+                const saved = localStorage.getItem(storageKey(name));
+                if (saved && saved.startsWith("data:image/")) ENEMY_ASSETS[name] = { type: "single", url: saved };
+                else ENEMY_ASSETS[name] = JSON.parse(JSON.stringify(DEFAULT_ASSETS[name]));
+            }
+        }
+        applyCustomAssetsFromStorage();
+
+        function bindEnemyFileInput(enemyName, fileInputId, resetBtnId) {
+            const input = document.getElementById(fileInputId);
+            const reset = document.getElementById(resetBtnId);
+
+            if (input) {
+                input.addEventListener("change", (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        const dataUrl = String(reader.result || "");
+                        if (!dataUrl.startsWith("data:image/")) return alert("画像として読み込めませんでした。");
+                        try { localStorage.setItem(storageKey(enemyName), dataUrl); }
+                        catch { return alert("保存に失敗しました（画像が大きすぎる可能性）。圧縮して再試行してください。"); }
+                        applyCustomAssetsFromStorage();
+                        renderFromCmd();
+                    };
+                    reader.readAsDataURL(file);
+                });
+            }
+
+            if (reset) {
+                reset.addEventListener("click", () => {
+                    localStorage.removeItem(storageKey(enemyName));
+                    if (input) input.value = "";
+                    applyCustomAssetsFromStorage();
+                    renderFromCmd();
+                });
+            }
+        }
+
+        bindEnemyFileInput("ゴブリン", "file_goblin", "reset_goblin");
+        bindEnemyFileInput("アンデッド", "file_undead", "reset_undead");
+        bindEnemyFileInput("盗賊", "file_bandit", "reset_bandit");
+        bindEnemyFileInput("ドラゴン", "file_dragon", "reset_dragon");
+        bindEnemyFileInput("スライム", "file_slime", "reset_slime");
+        bindEnemyFileInput("ミュウツー", "file_mewtwo", "reset_mewtwo");
+
+        /** ===== パース：boss:敵名 + 敵名数 ===== */
+        function parseScene(text) {
+            const t = text.replace(/\s+/g, " ").trim();
+            const parts = t.split(" ");
+            const words = parts.filter(x => x && x !== "/scene" && x !== "scene");
+
+            const loc = LOCS.find(x => words.includes(x)) || "森";
+            const time = TIMES.find(x => words.includes(x)) || "昼";
+            const weather = WEATHERS.find(x => words.includes(x)) || "晴";
+
+            let bossWanted = null;
+            for (const w of words) {
+                if (!w.startsWith("boss:")) continue;
+                const name = w.slice("boss:".length);
+                if (ENEMIES.includes(name)) bossWanted = name;
+            }
+
+            const found = [];
+            for (const w of words) {
+                if (w.startsWith("boss:")) continue;
+
+                const name = ENEMIES.find(e => w.startsWith(e));
+                if (!name) continue;
+
+                let count = 1;
+                const m = w.match(/(\d+)$/);
+                if (m) count = Math.max(1, Math.min(999, parseInt(m[1], 10)));
+
+                const idx = found.findIndex(x => x.name === name);
+                if (idx >= 0) found[idx].count += count;
+                else found.push({ name, count });
+            }
+            if (found.length === 0) found.push({ name: "ゴブリン", count: 2 });
+
+            const seed = hash32(t);
+            return { loc, time, weather, enemies: found, seed, bossWanted };
+        }
+
+        /** ===== SVG ヘルパー ===== */
+        function svgEl(tag, attrs = {}, children = []) {
+            const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
+            for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, String(v));
+            for (const c of children) el.appendChild(c);
+            return el;
+        }
+        function setImageHref(imgEl, url) {
+            imgEl.setAttribute("href", url);
+            imgEl.setAttributeNS("http://www.w3.org/1999/xlink", "xlink:href", url);
+        }
+        function addSingleImage({ parent, url, x, y, w, h, opacity = 1.0 }) {
+            const img = svgEl("image", { x, y, width: w, height: h, opacity: String(opacity), preserveAspectRatio: "xMidYMid meet" });
+            setImageHref(img, url);
+            parent.appendChild(img);
+        }
+        function addSheetFrame({ defs, parent, url, frameW, frameH, cols, rows, frame, x, y, w, h, idSeed }) {
+            const clipId = `clip_${idSeed}_${Math.random().toString(16).slice(2)}`;
+            const clip = svgEl("clipPath", { id: clipId });
+            clip.appendChild(svgEl("rect", { x, y, width: w, height: h, rx: Math.min(18, w * 0.12) }));
+            defs.appendChild(clip);
+
+            const fx = frame % cols;
+            const fy = Math.floor(frame / cols);
+            const sheetW = cols * frameW;
+            const sheetH = rows * frameH;
+
+            const sx = w / frameW;
+            const sy = h / frameH;
+
+            const img = svgEl("image", {
+                x: x - fx * frameW * sx,
+                y: y - fy * frameH * sy,
+                width: sheetW * sx,
+                height: sheetH * sy,
+                preserveAspectRatio: "none",
+                "clip-path": `url(#${clipId})`
+            });
+            setImageHref(img, url);
+            parent.appendChild(img);
+        }
+
+        /** ===== サイズ/ボス選出 ===== */
+        function enemyBaseSize(enemyName) {
+            if (enemyName === "ミュウツー") return { w: 320, h: 320 };
+            if (enemyName === "ドラゴン") return { w: 320, h: 320 };
+            if (enemyName === "スライム") return { w: 210, h: 210 };
+            if (enemyName === "ゴブリン") return { w: 250, h: 250 };
+            if (enemyName === "盗賊") return { w: 220, h: 220 };
+            if (enemyName === "アンデッド") return { w: 240, h: 240 };
+            return { w: 230, h: 230 };
+        }
+        function pickBossAuto(enemies) {
+            for (const name of BOSS_PRIORITY) {
+                const hit = enemies.find(e => e.name === name && e.count > 0);
+                if (hit) return name;
+            }
+            return enemies[0]?.name ?? "ゴブリン";
+        }
+
+        /** ===== リアル寄りパレット ===== */
+        function skyStops(time) {
+            if (time === "夜") {
+                return [
+                    ["0%", "#050814"],
+                    ["45%", "#0b1b3a"],
+                    ["75%", "#1d2f53"],
+                    ["100%", "#2a3f7a"]
+                ];
+            }
+            if (time === "夕") {
+                return [
+                    ["0%", "#2a3a6a"],
+                    ["35%", "#ff7a66"],
+                    ["60%", "#ffb36a"],
+                    ["100%", "#f6fbff"]
+                ];
+            }
+            // 昼
+            return [
+                ["0%", "#2f6bff"],
+                ["40%", "#6fb2ff"],
+                ["70%", "#cfe8ff"],
+                ["100%", "#f6fbff"]
+            ];
+        }
+
+        function weatherParams(weather) {
+            if (weather === "晴") return { haze: 0.00, veil: 0.00 };
+            if (weather === "雨") return { haze: 0.06, veil: 0.06 };
+            if (weather === "霧") return { haze: 0.16, veil: 0.18 };
+            if (weather === "雪") return { haze: 0.10, veil: 0.08 };
+            return { haze: 0.00, veil: 0.00 };
+        }
+
+        /** ===== メイン描画 ===== */
+        function buildSceneSVG(scene) {
+            const { loc, time, weather, enemies, seed, bossWanted } = scene;
+            const rand = mulberry32(seed);
+
+            const W = 1600, H = 900;
+            const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, width: "100%", height: "100%", role: "img" });
+            const defs = svgEl("defs");
+            svg.appendChild(defs);
+
+            // --- フィルター（簡易ぼかし：霧/遠景） ---
+            const blur = svgEl("filter", { id: "blur2" });
+            blur.appendChild(svgEl("feGaussianBlur", { "stdDeviation": "2" }));
+            defs.appendChild(blur);
+
+            // ====== 背景：リアル寄り空（多層グラデ） ======
+            const skyGrad = svgEl("linearGradient", { id: "sky", x1: "0", y1: "0", x2: "0", y2: "1" });
+            for (const [off, col] of skyStops(time)) {
+                skyGrad.appendChild(svgEl("stop", { offset: off, "stop-color": col }));
+            }
+            defs.appendChild(skyGrad);
+            svg.appendChild(svgEl("rect", { x: 0, y: 0, width: W, height: H, fill: "url(#sky)" }));
+
+            // 光源（太陽/月） + グロー
+            if (time !== "夜") {
+                svg.appendChild(svgEl("circle", { cx: 1240, cy: 190, r: 105, fill: "rgba(255,240,190,0.28)" }));
+                svg.appendChild(svgEl("circle", { cx: 1240, cy: 190, r: 78, fill: "rgba(255,240,190,0.80)" }));
+            } else {
+                svg.appendChild(svgEl("circle", { cx: 1250, cy: 175, r: 92, fill: "rgba(235,245,255,0.18)" }));
+                svg.appendChild(svgEl("circle", { cx: 1250, cy: 175, r: 68, fill: "rgba(235,245,255,0.90)" }));
+                svg.appendChild(svgEl("circle", { cx: 1284, cy: 155, r: 58, fill: "#0b1b3a", opacity: "0.75" }));
+            }
+
+            // 雲っぽい薄い層
+            const cloud = svgEl("g", { opacity: "0.12" });
+            for (let i = 0; i < 8; i++) {
+                const y = 80 + i * 45 + (rand() - 0.5) * 20;
+                const w = 520 + rand() * 520;
+                const x = -120 + rand() * (W + 240);
+                cloud.appendChild(svgEl("path", {
+                    d: `M ${x} ${y}
+         C ${x + w * 0.25} ${y - 30}, ${x + w * 0.45} ${y + 30}, ${x + w * 0.65} ${y}
+         C ${x + w * 0.85} ${y - 25}, ${x + w * 1.05} ${y + 25}, ${x + w * 1.25} ${y}`,
+                    fill: "none",
+                    stroke: "rgba(255,255,255,0.9)",
+                    "stroke-width": 38,
+                    "stroke-linecap": "round"
+                }));
+            }
+            svg.appendChild(cloud);
+
+            // ====== 遠景レイヤー（空気遠近：奥ほど薄く） ======
+            function distantLayer(y, color, opacity, rough = 80) {
+                const a = rough;
+                const y1 = y + (rand() - 0.5) * 20;
+                const y2 = y + (rand() - 0.5) * 20;
+                svg.appendChild(svgEl("path", {
+                    d: `M0 ${y}
+         C 220 ${y - a}, 420 ${y + a}, 720 ${y1}
+         C 980 ${y - a * 0.9}, 1220 ${y + a * 0.7}, 1600 ${y2}
+         L1600 900 L0 900 Z`,
+                    fill: color,
+                    opacity: String(opacity),
+                    filter: "url(#blur2)"
+                }));
+            }
+
+            if (loc === "海岸") {
+                // 海岸は水平遠景＋海面
+                distantLayer(470, "#243a57", 0.22, 55);
+                distantLayer(520, "#1f3a2f", 0.28, 65);
+            } else if (loc === "洞窟") {
+                // 洞窟は暗めの壁
+                distantLayer(460, "#121622", 0.35, 60);
+                distantLayer(520, "#0f141f", 0.40, 60);
+            } else {
+                distantLayer(430, "#2a3b55", 0.20, 95);
+                distantLayer(485, "#1f3d2f", 0.28, 85);
+                distantLayer(540, "#203f2a", 0.42, 75);
+            }
+
+            // ====== 中景オブジェクト（シルエット寄り） ======
+            const mid = svgEl("g", { opacity: "0.85" });
+            function addTree(x, y, s) {
+                mid.appendChild(svgEl("path", {
+                    d: `M ${x} ${y}
+         C ${x - 70 * s} ${y + 40 * s}, ${x - 40 * s} ${y + 140 * s}, ${x} ${y + 130 * s}
+         C ${x + 40 * s} ${y + 140 * s}, ${x + 70 * s} ${y + 40 * s}, ${x} ${y} Z`,
+                    fill: "rgba(15,45,25,.85)"
+                }));
+                mid.appendChild(svgEl("rect", { x: x - 10 * s, y: y + 120 * s, width: 20 * s, height: 95 * s, rx: 8 * s, fill: "rgba(30,20,12,.85)" }));
+            }
+            function addHouse(x, y, s) {
+                mid.appendChild(svgEl("path", { d: `M ${x - 140 * s} ${y + 10 * s} L ${x} ${y - 90 * s} L ${x + 140 * s} ${y + 10 * s} Z`, fill: "rgba(60,35,25,.9)" }));
+                mid.appendChild(svgEl("rect", { x: x - 120 * s, y: y, width: 240 * s, height: 170 * s, rx: 18 * s, fill: "rgba(30,22,18,.9)" }));
+            }
+            function addPillar(x, y, s) {
+                mid.appendChild(svgEl("rect", { x: x - 18 * s, y: y, width: 36 * s, height: 240 * s, rx: 10 * s, fill: "rgba(220,235,255,.25)" }));
+            }
+
+            if (loc === "森") {
+                for (let i = 0; i < 7; i++) addTree(170 + i * 230 + (rand() - 0.5) * 70, 360 + (rand() - 0.5) * 30, 0.9 + rand() * 0.5);
+            } else if (loc === "酒場") {
+                addHouse(820, 390, 1.15);
+                addHouse(460, 430, 0.88);
+                addHouse(1210, 440, 0.82);
+            } else if (loc === "神殿") {
+                for (let i = -2; i <= 2; i++) addPillar(800 + i * 95, 330, 1.0);
+            } else if (loc === "街") {
+                for (let i = 0; i < 8; i++) {
+                    const x = 140 + i * 190 + (rand() - 0.5) * 20;
+                    const w = 120 + rand() * 120;
+                    const h = 170 + rand() * 260;
+                    mid.appendChild(svgEl("rect", { x, y: 530 - h, width: w, height: h, rx: 16, fill: "rgba(15,12,12,.55)" }));
+                }
+            } else if (loc === "洞窟") {
+                mid.appendChild(svgEl("path", {
+                    d: `M 60 640
+         C 240 420, 460 380, 720 420
+         C 980 460, 1140 360, 1380 420
+         C 1540 460, 1590 580, 1520 670
+         C 1450 740, 1310 765, 1180 760
+         C 980 755, 920 820, 720 820
+         C 520 820, 470 745, 330 750
+         C 170 760, 80 710, 60 640 Z`,
+                    fill: "rgba(0,0,0,.38)"
+                }));
+            } else if (loc === "海岸") {
+                mid.appendChild(svgEl("path", {
+                    d: `M0 640 C 260 600, 420 690, 650 660 C 980 620, 1200 730, 1600 680 L1600 900 L0 900 Z`,
+                    fill: "rgba(70,150,210,.22)"
+                }));
+            }
+            svg.appendChild(mid);
+
+            // ====== 地面（テクスチャ風 + 影ムラ） ======
+            // ベース
+            svg.appendChild(svgEl("path", {
+                d: `M0 600
+       C 240 560, 480 650, 720 620
+       C 980 590, 1200 690, 1600 640
+       L1600 900 L0 900 Z`,
+                fill: (loc === "海岸") ? "#173044" : "#1f3b26"
+            }));
+
+            // 色ムラ（草/砂感）
+            const groundGrain = svgEl("g", { opacity: "0.10" });
+            for (let i = 0; i < 140; i++) {
+                const cx = rand() * W;
+                const cy = 600 + rand() * 300;
+                const r = 1.5 + rand() * 4.5;
+                groundGrain.appendChild(svgEl("circle", { cx, cy, r, fill: "rgba(255,255,255,0.9)" }));
+            }
+            svg.appendChild(groundGrain);
+
+            // 影の帯（起伏）
+            for (let i = 0; i < 6; i++) {
+                const y = 620 + i * 42 + (rand() - 0.5) * 18;
+                svg.appendChild(svgEl("path", {
+                    d: `M -80 ${y} C 420 ${y - 18}, 860 ${y + 30}, 1680 ${y}`,
+                    stroke: "rgba(0,0,0,0.18)",
+                    "stroke-width": 52,
+                    fill: "none",
+                    "stroke-linecap": "round"
+                }));
+            }
+
+            // ====== 天候（面 + 奥行き） ======
+            const wp = weatherParams(weather);
+
+            // 全体のベール（霧/雨/雪で少しだけ）
+            if (wp.veil > 0) {
+                svg.appendChild(svgEl("rect", {
+                    x: 0, y: 0, width: W, height: H,
+                    fill: "#e6edf5",
+                    opacity: String(wp.veil)
+                }));
+            }
+
+            if (weather === "雨") {
+                const rain = svgEl("g", { opacity: "0.32" });
+                for (let i = 0; i < 240; i++) {
+                    const x = rand() * W;
+                    const y = rand() * H;
+                    const len = 18 + rand() * 26;
+                    rain.appendChild(svgEl("line", {
+                        x1: x, y1: y,
+                        x2: x - 12, y2: y + len,
+                        stroke: "#cfe6ff",
+                        "stroke-width": 2,
+                        "stroke-linecap": "round"
+                    }));
+                }
+                svg.appendChild(rain);
+            } else if (weather === "雪") {
+                const snow = svgEl("g", { opacity: "0.55" });
+                for (let i = 0; i < 140; i++) {
+                    const x = rand() * W;
+                    const y = rand() * H * 0.9;
+                    const r = 1.8 + rand() * 4.2;
+                    snow.appendChild(svgEl("circle", { cx: x, cy: y, r, fill: "#f7fbff" }));
+                }
+                svg.appendChild(snow);
+            } else if (weather === "霧") {
+                // 霧は薄い層をさらに重ねる
+                const fog = svgEl("g", { opacity: "0.22" });
+                for (let i = 0; i < 6; i++) {
+                    const y = 520 + i * 55 + (rand() - 0.5) * 28;
+                    fog.appendChild(svgEl("path", {
+                        d: `M -50 ${y} C 200 ${y - 40}, 420 ${y + 40}, 650 ${y}
+            C 900 ${y - 40}, 1120 ${y + 40}, 1650 ${y}`,
+                        fill: "none", stroke: "#e6ecff", "stroke-width": 40, "stroke-linecap": "round"
+                    }));
+                }
+                svg.appendChild(fog);
+            }
+
+            // ====== ボス確定（boss:最優先） ======
+            let bossName = null;
+            if (bossWanted && enemies.some(e => e.name === bossWanted)) bossName = bossWanted;
+            else bossName = pickBossAuto(enemies);
+
+            // ボスは1体確保（その敵が存在しない/0ならボス無し）
+            const mobsSpec = enemies.map(e => ({ name: e.name, count: e.count }));
+            const bossEntry = mobsSpec.find(e => e.name === bossName);
+            let hasBoss = false;
+            if (bossEntry && bossEntry.count > 0) {
+                bossEntry.count -= 1;
+                hasBoss = true;
+            }
+
+            // ====== 雑魚展開（最大24） ======
+            const mobsAll = [];
+            for (const e of mobsSpec) {
+                const c = Math.max(0, Math.min(999, e.count));
+                for (let i = 0; i < c; i++) mobsAll.push({ name: e.name });
+            }
+            const MAX_PER_ROW = 12;
+            const MAX_MOBS = MAX_PER_ROW * 2;
+            const mobs = mobsAll.slice(0, MAX_MOBS);
+            const trimmed = mobsAll.length > MAX_MOBS;
+
+            // シャッフル（固まり回避）
+            for (let i = mobs.length - 1; i > 0; i--) {
+                const j = Math.floor(rand() * (i + 1));
+                [mobs[i], mobs[j]] = [mobs[j], mobs[i]];
+            }
+            const rowFront = mobs.slice(0, MAX_PER_ROW);
+            const rowMid = mobs.slice(MAX_PER_ROW);
+
+            const fg = svgEl("g", {});
+
+            // 1) ボス（奥・中央・大・一番後ろ）
+            if (hasBoss) {
+                const asset = ENEMY_ASSETS[bossName] || DEFAULT_ASSETS[bossName];
+                const base = enemyBaseSize(bossName);
+
+                const scale = 1.62;
+                const w = base.w * scale;
+                const h = base.h * scale;
+
+                const px = W / 2 + (rand() - 0.5) * 18;
+                const py = 360 + (rand() - 0.5) * 10;
+
+                fg.appendChild(svgEl("ellipse", {
+                    cx: px, cy: py + 250 * 0.78, rx: 120 * 0.92, ry: 32 * 0.78,
+                    fill: "rgba(0,0,0,.16)"
+                }));
+
+                if (asset.type === "sheet") {
+                    const frame = (asset.defaultFrame + Math.floor(rand() * asset.cols)) % (asset.cols * asset.rows);
+                    addSheetFrame({
+                        defs, parent: fg,
+                        url: asset.url,
+                        frameW: asset.frameW, frameH: asset.frameH,
+                        cols: asset.cols, rows: asset.rows,
+                        frame,
+                        x: px - w / 2,
+                        y: py + 110 * 0.9 - h,
+                        w, h,
+                        idSeed: seed
+                    });
+                } else {
+                    addSingleImage({
+                        parent: fg,
+                        url: asset.url,
+                        x: px - w / 2,
+                        y: py + 110 * 0.9 - h,
+                        w, h,
+                        opacity: 0.98
+                    });
+                }
+            }
+
+            // 2) 雑魚（手前に並べる / 2段）
+            function placeMobRow(rowUnits, rowIndex) {
+                if (rowUnits.length === 0) return;
+
+                // rowIndex=0：中段（少し奥）、rowIndex=1：前段（手前）
+                const baseY = (rowIndex === 0) ? 520 : 630;
+                const depthScale = (rowIndex === 0) ? 0.92 : 1.00;
+
+                const span = Math.min(1220, 165 * rowUnits.length);
+                const startX = (W - span) / 2;
+                const step = (rowUnits.length <= 1) ? 0 : span / (rowUnits.length - 1);
+
+                rowUnits.forEach((u, idx) => {
+                    const enemyName = u.name;
+                    const asset = ENEMY_ASSETS[enemyName] || DEFAULT_ASSETS[enemyName];
+                    const base = enemyBaseSize(enemyName);
+
+                    const w = base.w * depthScale;
+                    const h = base.h * depthScale;
+
+                    const px = startX + step * idx + (rand() - 0.5) * 28;
+                    const py = baseY + (rand() - 0.5) * 16;
+
+                    fg.appendChild(svgEl("ellipse", {
+                        cx: px, cy: py + 250 * depthScale, rx: 95 * depthScale, ry: 28 * depthScale,
+                        fill: rowIndex === 0 ? "rgba(0,0,0,.26)" : "rgba(0,0,0,.35)"
+                    }));
+
+                    if (asset.type === "sheet") {
+                        const frame = (asset.defaultFrame + Math.floor(rand() * asset.cols)) % (asset.cols * asset.rows);
+                        addSheetFrame({
+                            defs, parent: fg,
+                            url: asset.url,
+                            frameW: asset.frameW, frameH: asset.frameH,
+                            cols: asset.cols, rows: asset.rows,
+                            frame,
+                            x: px - w / 2,
+                            y: py + 110 * depthScale - h,
+                            w, h,
+                            idSeed: seed
+                        });
+                    } else {
+                        addSingleImage({
+                            parent: fg,
+                            url: asset.url,
+                            x: px - w / 2,
+                            y: py + 110 * depthScale - h,
+                            w, h,
+                            opacity: 0.98
+                        });
+                    }
+                });
+            }
+
+            // 描画順：中段 → 前段（前段が手前）
+            placeMobRow(rowMid, 0);
+            placeMobRow(rowFront, 1);
+
+            svg.appendChild(fg);
+
+            // ====== タイトル ======
+            const mobLabel = enemies.map(e => `${e.name}×${e.count}`).join(" + ");
+            const bossLabel = hasBoss ? `BOSS:${bossName}${bossWanted ? " (cmd)" : " (auto)"}` : "BOSS:-";
+            const title = `${loc} / ${time} / ${weather} / ${bossLabel} / ${mobLabel}`;
+
+            svg.appendChild(svgEl("rect", { x: 30, y: 30, width: W - 60, height: 76, rx: 18, fill: "rgba(0,0,0,.35)" }));
+            svg.appendChild(svgEl("text", { x: 60, y: 80, fill: "rgba(255,255,255,.92)", "font-size": "26", "font-weight": "700" }, [
+                document.createTextNode(title)
+            ]));
+            svg.appendChild(svgEl("text", { x: 60, y: 114, fill: "rgba(255,255,255,.65)", "font-size": "18" }, [
+                document.createTextNode(`seed: ${seed} / mobs: ${mobs.length}${trimmed ? " (trimmed to 24)" : ""}`)
+            ]));
+
+            return svg;
+        }
+
+        /** ===== UI ===== */
+        function renderFromCmd() {
+            const cmd = document.getElementById("cmd").value;
+            const scene = parseScene(cmd);
+
+            document.getElementById("vLoc").textContent = scene.loc;
+            document.getElementById("vTime").textContent = scene.time;
+            document.getElementById("vWeather").textContent = scene.weather;
+            document.getElementById("vEnemy").textContent = scene.enemies.map(e => `${e.name}×${e.count}`).join(" + ");
+            document.getElementById("vBoss").textContent = scene.bossWanted ? scene.bossWanted : "(auto)";
+            document.getElementById("vSeed").textContent = String(scene.seed);
+
+            const stage = document.getElementById("stage");
+            stage.innerHTML = "";
+            stage.appendChild(buildSceneSVG(scene));
+        }
+
+        function randomCmd() {
+            const loc = LOCS[Math.floor(Math.random() * LOCS.length)];
+            const time = TIMES[Math.floor(Math.random() * TIMES.length)];
+            const weather = WEATHERS[Math.floor(Math.random() * WEATHERS.length)];
+
+            const picked = [...ENEMIES].sort(() => Math.random() - 0.5).slice(0, 4);
+            const boss = picked[Math.floor(Math.random() * picked.length)];
+            const enemyPart = picked.map(n => `${n}${1 + Math.floor(Math.random() * 18)}`).join(" ");
+
+            document.getElementById("cmd").value = `/scene ${loc} ${time} ${weather} boss:${boss} ${enemyPart}`;
+            renderFromCmd();
+        }
+
+        function exportSVG() {
+            const svg = document.querySelector("#stage svg");
+            if (!svg) return;
+            const xml = new XMLSerializer().serializeToString(svg);
+            const blob = new Blob([xml], { type: "image/svg+xml;charset=utf-8" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "trpg_scene.svg";
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+        }
+
+        document.getElementById("gen").addEventListener("click", renderFromCmd);
+        document.getElementById("rand").addEventListener("click", randomCmd);
+        document.getElementById("export").addEventListener("click", exportSVG);
+        document.querySelectorAll("button[data-preset]").forEach(b => {
+            b.addEventListener("click", () => {
+                document.getElementById("cmd").value = b.getAttribute("data-preset");
+                renderFromCmd();
+            });
+        });
+
+        renderFromCmd();
+    </script>
+</body>
+
+</html>

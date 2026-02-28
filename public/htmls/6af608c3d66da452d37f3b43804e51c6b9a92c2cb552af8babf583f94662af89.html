@@ -1,0 +1,780 @@
+<!doctype html>
+<html lang="ja">
+
+<head>
+    <meta charset="utf-8">
+    <title>Tetris HTML</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            margin: 0;
+            background: #0b1020;
+            color: #fff;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        #container {
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+        }
+
+        canvas {
+            background: #0f1530;
+            border: 2px solid #3b4a8a;
+            border-radius: 10px;
+        }
+
+        #info {
+            font-size: 14px;
+            line-height: 1.7;
+            padding-top: 6px;
+            min-width: 250px;
+        }
+
+        h2 {
+            margin: 0 0 10px 0
+        }
+
+        .muted {
+            opacity: .8
+        }
+
+        .kbd {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+            font-size: 12px;
+            padding: 2px 6px;
+            border: 1px solid rgba(255, 255, 255, .25);
+            border-bottom-width: 2px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, .08);
+            display: inline-block;
+            margin-right: 4px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="container">
+        <canvas id="game" width="660" height="600"></canvas>
+
+        <div id="info">
+            <h2>TETRIS</h2>
+            SCORE: <span id="score">0</span><br>
+            LINES: <span id="lines">0</span><br>
+            LEVEL: <span id="level">1</span><br>
+            COMBO: <span id="combo">-</span><br>
+            BtB: <span id="btb">-</span><br><br>
+
+            <div class="muted">操作</div>
+            <div><span class="kbd">←</span><span class="kbd">→</span> 長押しで移動</div>
+            <div><span class="kbd">↓</span> 長押しでソフトドロップ</div>
+            <div><span class="kbd">↑</span> ハードドロップ</div>
+            <div><span class="kbd">X</span> 右回転</div>
+            <div><span class="kbd">Z</span> 左回転</div>
+            <div><span class="kbd">Space</span> ホールド</div>
+            <div><span class="kbd">P</span> 一時停止 / <span class="kbd">R</span> リセット</div>
+            <div class="muted" style="margin-top:10px;">スコア：画像テーブル準拠</div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("game");
+        const ctx = canvas.getContext("2d");
+
+        // 盤面設定
+        const COLS = 10;
+        const ROWS = 20;
+        const SIZE = 30;
+        const BOARD_W = COLS * SIZE;
+        const BOARD_H = ROWS * SIZE;
+
+        // 左右パネル
+        const PANEL_COLS = 6;
+        const PANEL_W = PANEL_COLS * SIZE;
+        const BOARD_X = PANEL_W;
+        const BOARD_Y = 0;
+
+        // 長押し入力設定（好みで調整OK）
+        const DAS = 140;   // 最初の連続移動までの待ち(ms)
+        const ARR = 45;    // 左右の連続移動間隔(ms)
+        const SDR = 45;    // ↓の連続ソフトドロップ間隔(ms)
+
+        const COLORS = {
+            I: "#4dd", O: "#dd4", T: "#a5f", S: "#5f5", Z: "#f55", J: "#55f", L: "#fa5"
+        };
+
+        const SHAPES = {
+            I: [[0, 0, 0, 0], [1, 1, 1, 1], [0, 0, 0, 0], [0, 0, 0, 0]],
+            O: [[1, 1], [1, 1]],
+            T: [[0, 1, 0], [1, 1, 1], [0, 0, 0]],
+            S: [[0, 1, 1], [1, 1, 0], [0, 0, 0]],
+            Z: [[1, 1, 0], [0, 1, 1], [0, 0, 0]],
+            J: [[1, 0, 0], [1, 1, 1], [0, 0, 0]],
+            L: [[0, 0, 1], [1, 1, 1], [0, 0, 0]]
+        };
+        const TYPES = Object.keys(SHAPES);
+
+        // ===== 七種一巡（7-bag） =====
+        let bag = [];
+        function shuffleInPlace(arr) {
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = (Math.random() * (i + 1)) | 0;
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+        function refillBag() {
+            bag = TYPES.slice();
+            shuffleInPlace(bag);
+        }
+        function popFromBag() {
+            if (bag.length === 0) refillBag();
+            return bag.pop();
+        }
+
+        // ===== スコアテーブル（画像準拠） =====
+        const SCORE_TABLE = {
+            // 通常ライン消し
+            SINGLE: { base: 100 },
+            DOUBLE: { base: 300 },
+            TRIPLE: { base: 500 },
+            TETRIS: { base: 800, b2b: 1200 },
+
+            // T-Spin / Mini
+            TSPIN_MINI: { base: 100 },
+            TSPIN_MINI_SINGLE: { base: 200, b2b: 300 },
+            TSPIN_MINI_DOUBLE: { base: 400, b2b: 600 },
+
+            TSPIN: { base: 400 },
+            TSPIN_SINGLE: { base: 800, b2b: 1200 },
+            TSPIN_DOUBLE: { base: 1200, b2b: 1800 },
+            TSPIN_TRIPLE: { base: 1600, b2b: 2400 },
+
+            // All-Clear（完全消去）
+            AC_SINGLE: { base: 900 },
+            AC_DOUBLE: { base: 1500 },
+            AC_TRIPLE: { base: 2300 },
+            AC_TETRIS: { base: 2800, b2b: 4400 }, // ※画像どおり
+        };
+
+        // Combo（画像準拠）: combo=0 -> 0, combo=1 -> 50, ...
+        function comboBase(combo) {
+            return Math.max(0, combo) * 50;
+        }
+        function comboWithB2B(combo) {
+            // 画像のBtBあり列（×1.5相当）
+            return Math.floor(comboBase(combo) * 1.5);
+        }
+
+        // ===== ゲーム状態 =====
+        let board, piece;
+        let nextQueue = []; // 次のミノ（type）を4つ（bagから補充）
+        let hold = null;
+        let canHold = true;
+
+        let score = 0, lines = 0, level = 1;
+        let dropTime = 800, dropCounter = 0;
+        let last = 0, paused = false;
+
+        // BtB / Combo 管理
+        let b2b = false;     // 現在BtB継続中か（次の対象アクションでBtB加点するためのフラグ）
+        let combo = -1;      // 直前が消しなしなら -1、最初の消しで0、連続で+1
+
+        // T-Spin判定用
+        let lastMoveWasRotate = false;
+
+        // ===== 長押し入力状態 =====
+        const keys = {
+            left: { down: false, nextRepeat: 0 },
+            right: { down: false, nextRepeat: 0 },
+            down: { down: false, nextRepeat: 0 },
+        };
+
+        // ===== ユーティリティ =====
+        function resetBoard() {
+            board = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
+        }
+        function cloneShape(shape) {
+            return shape.map(r => r.slice());
+        }
+        function spawnFromType(type) {
+            return {
+                type,
+                shape: cloneShape(SHAPES[type]),
+                x: (COLS / 2 | 0) - 1,
+                y: 0,
+                rot: 0, // 0,1,2,3（T-Spinの向き判定に使用）
+            };
+        }
+
+        // nextQueue を bag から埋める（常に4個を維持）
+        function fillNextQueue() {
+            while (nextQueue.length < 4) {
+                nextQueue.push(popFromBag());
+            }
+        }
+        function takeNextType() {
+            fillNextQueue();
+            const t = nextQueue.shift();
+            fillNextQueue();
+            return t;
+        }
+
+        function cellOccupied(x, y) {
+            // 壁/床の外側は「埋まっている扱い」（T-Spin角判定用）
+            if (x < 0 || x >= COLS || y >= ROWS) return true;
+            if (y < 0) return false; // 天井上は空扱い
+            return !!board[y][x];
+        }
+
+        function collide(p) {
+            for (let y = 0; y < p.shape.length; y++) {
+                for (let x = 0; x < p.shape[y].length; x++) {
+                    if (!p.shape[y][x]) continue;
+                    const nx = p.x + x;
+                    const ny = p.y + y;
+                    if (nx < 0 || nx >= COLS || ny >= ROWS) return true;
+                    if (ny >= 0 && board[ny]?.[nx]) return true;
+                }
+            }
+            return false;
+        }
+
+        function merge() {
+            piece.shape.forEach((r, y) => {
+                r.forEach((v, x) => {
+                    if (v) {
+                        const by = piece.y + y;
+                        const bx = piece.x + x;
+                        if (by >= 0) board[by][bx] = piece.type;
+                    }
+                });
+            });
+        }
+
+        function rotatePiece(dir) {
+            const m = piece.shape;
+            const N = m.length;
+            const res = Array.from({ length: N }, () => Array(N).fill(0));
+            for (let y = 0; y < N; y++) {
+                for (let x = 0; x < N; x++) {
+                    if (dir > 0) res[x][N - 1 - y] = m[y][x];
+                    else res[N - 1 - x][y] = m[y][x];
+                }
+            }
+            const oldShape = piece.shape;
+            const oldRot = piece.rot;
+
+            piece.shape = res;
+            piece.rot = (piece.rot + (dir > 0 ? 1 : 3)) % 4;
+
+            // 簡易キック
+            const kicks = [0, 1, -1, 2, -2];
+            for (const k of kicks) {
+                const oldX = piece.x;
+                piece.x = oldX + k;
+                if (!collide(piece)) {
+                    lastMoveWasRotate = true;
+                    return;
+                }
+                piece.x = oldX;
+            }
+            piece.shape = oldShape;
+            piece.rot = oldRot;
+        }
+
+        function clearLinesReturnCount() {
+            let cleared = 0;
+            for (let y = ROWS - 1; y >= 0; y--) {
+                if (board[y].every(v => v)) {
+                    board.splice(y, 1);
+                    board.unshift(Array(COLS).fill(null));
+                    cleared++;
+                    y++;
+                }
+            }
+            return cleared;
+        }
+
+        function boardIsEmpty() {
+            for (let y = 0; y < ROWS; y++) {
+                for (let x = 0; x < COLS; x++) {
+                    if (board[y][x]) return false;
+                }
+            }
+            return true;
+        }
+
+        // ===== T-Spin / Mini 判定（簡易だけど実用レベル） =====
+        // 条件：Tミノ & 最後の操作が回転 & 角3つ以上が埋まり
+        // Mini判定：前側2角が両方埋まってなければMini扱い
+        function detectTSpin() {
+            if (piece.type !== "T") return { is: false, mini: false };
+            if (!lastMoveWasRotate) return { is: false, mini: false };
+
+            // Tの中心（3x3の中央）を基準に角を判定
+            // T shape は3x3想定
+            const cx = piece.x + 1;
+            const cy = piece.y + 1;
+
+            const corners = [
+                [cx - 1, cy - 1], // NW
+                [cx + 1, cy - 1], // NE
+                [cx - 1, cy + 1], // SW
+                [cx + 1, cy + 1], // SE
+            ];
+            const occ = corners.map(([x, y]) => cellOccupied(x, y));
+            const occCount = occ.filter(Boolean).length;
+
+            if (occCount < 3) return { is: false, mini: false };
+
+            // 前側2角（Tが向いている方向）
+            // rot=0: 上向き（凸が上）→ 前側は上2角
+            // rot=1: 右向き → 右2角
+            // rot=2: 下向き → 下2角
+            // rot=3: 左向き → 左2角
+            let frontA, frontB;
+            if (piece.rot === 0) { frontA = 0; frontB = 1; }     // NW, NE
+            else if (piece.rot === 1) { frontA = 1; frontB = 3; } // NE, SE
+            else if (piece.rot === 2) { frontA = 2; frontB = 3; } // SW, SE
+            else { frontA = 0; frontB = 2; }                   // NW, SW
+
+            const frontBoth = occ[frontA] && occ[frontB];
+            const mini = !frontBoth;
+
+            return { is: true, mini };
+        }
+
+        // ===== スコア加算（画像準拠） =====
+        function addScoreForClear(linesCleared, tspinInfo) {
+            // combo更新
+            if (linesCleared > 0) combo = (combo < 0) ? 0 : combo + 1;
+            else combo = -1;
+
+            // イベント判定
+            const isTetris = (linesCleared === 4);
+            const isTSpin = tspinInfo.is;
+            const isMini = tspinInfo.is && tspinInfo.mini;
+
+            // このイベントに「BtBありスコア」が存在するか
+            // （画像のBtB列があるものだけ）
+            let hasB2BVariant = false;
+
+            // 基本加点キー
+            let key = null;
+
+            if (linesCleared === 0) {
+                if (isTSpin) {
+                    key = isMini ? "TSPIN_MINI" : "TSPIN";
+                    hasB2BVariant = false; // 画像上、ここはBtB列なし
+                } else {
+                    key = null;
+                }
+            } else {
+                if (isTSpin) {
+                    if (isMini) {
+                        if (linesCleared === 1) key = "TSPIN_MINI_SINGLE";
+                        else if (linesCleared === 2) key = "TSPIN_MINI_DOUBLE";
+                        else key = "TSPIN_TRIPLE"; // ミニトリプルは表にないので通常扱い
+                    } else {
+                        if (linesCleared === 1) key = "TSPIN_SINGLE";
+                        else if (linesCleared === 2) key = "TSPIN_DOUBLE";
+                        else if (linesCleared === 3) key = "TSPIN_TRIPLE";
+                        else key = "TETRIS";
+                    }
+                } else {
+                    if (linesCleared === 1) key = "SINGLE";
+                    else if (linesCleared === 2) key = "DOUBLE";
+                    else if (linesCleared === 3) key = "TRIPLE";
+                    else if (linesCleared === 4) key = "TETRIS";
+                }
+
+                // key が BtB列を持つか
+                hasB2BVariant = !!(SCORE_TABLE[key] && SCORE_TABLE[key].b2b);
+            }
+
+            // BtBが「今回適用されるか」
+            const b2bApplies = b2b && hasB2BVariant;
+
+            // 基本スコア
+            let base = 0;
+            if (key) {
+                const row = SCORE_TABLE[key];
+                base = b2bApplies ? (row.b2b ?? row.base) : row.base;
+            }
+
+            // All-Clear（完全消去）ボーナス
+            let allClearBonus = 0;
+            if (linesCleared > 0 && boardIsEmpty()) {
+                let acKey = null;
+                if (linesCleared === 1) acKey = "AC_SINGLE";
+                else if (linesCleared === 2) acKey = "AC_DOUBLE";
+                else if (linesCleared === 3) acKey = "AC_TRIPLE";
+                else if (linesCleared === 4) acKey = "AC_TETRIS";
+
+                const row = SCORE_TABLE[acKey];
+                if (acKey === "AC_TETRIS") {
+                    // 画像どおり：BtBありで 4400
+                    allClearBonus = (b2bApplies && row.b2b) ? row.b2b : row.base;
+                } else {
+                    allClearBonus = row.base;
+                }
+            }
+
+            // Comboボーナス（画像の表）
+            let comboBonus = 0;
+            if (linesCleared > 0) {
+                comboBonus = b2bApplies ? comboWithB2B(combo) : comboBase(combo);
+            }
+
+            // 合計（レベル倍率：基礎スコアの「基礎」をレベル倍として扱う）
+            // ※画像が「基礎スコア」なので、ここは level 乗算が自然です
+            const gained = (base + comboBonus + allClearBonus) * level;
+            score += gained;
+
+            // BtBチェーン更新（ライン消しが起きたときだけ更新）
+            // 対象（画像でBtB列がある系）を消したら継続、そうでなければ途切れる
+            if (linesCleared > 0) {
+                b2b = hasB2BVariant; // 次回にBtBを適用できる状態か
+            }
+
+            // HUD
+            document.getElementById("combo").textContent = (combo >= 0) ? combo : "-";
+            document.getElementById("btb").textContent = b2b ? "ON" : "-";
+        }
+
+        function lock() {
+            merge();
+            const cleared = clearLinesReturnCount();
+            lines += cleared;
+
+            // レベルアップ（10ラインごと）
+            const newLevel = 1 + Math.floor(lines / 10);
+            if (newLevel !== level) {
+                level = newLevel;
+                dropTime = Math.max(100, 800 - (level - 1) * 60);
+            }
+
+            // T-Spin判定は「ロック時」に行う
+            const tspinInfo = detectTSpin();
+
+            // スコア計算（画像準拠）
+            addScoreForClear(cleared, tspinInfo);
+
+            // 次のミノ
+            piece = spawnFromType(takeNextType());
+            piece.x = (COLS / 2 | 0) - 1;
+            piece.y = 0;
+
+            canHold = true;
+            lastMoveWasRotate = false;
+
+            if (collide(piece)) reset(); // 簡易：ゲームオーバーはリセット
+        }
+
+        function hardDrop() {
+            while (!collide({ ...piece, y: piece.y + 1 })) piece.y++;
+            lock();
+        }
+
+        function tryMove(dx) {
+            piece.x += dx;
+            if (collide(piece)) piece.x -= dx;
+            lastMoveWasRotate = false;
+        }
+
+        function trySoftDrop() {
+            piece.y += 1;
+            if (collide(piece)) piece.y -= 1; // 長押し↓では即ロックしない
+            lastMoveWasRotate = false;
+        }
+
+        // ===== 描画（盤面＋HOLD＋NEXT） =====
+        function drawCell(px, py, color) {
+            ctx.fillStyle = color;
+            ctx.fillRect(px + 1, py + 1, SIZE - 2, SIZE - 2);
+            ctx.fillStyle = "rgba(255,255,255,0.10)";
+            ctx.fillRect(px + 3, py + 3, SIZE - 6, Math.max(6, (SIZE - 6) * 0.22));
+        }
+        function drawLabel(text, x, y) {
+            ctx.fillStyle = "rgba(255,255,255,0.85)";
+            ctx.font = "700 14px system-ui";
+            ctx.fillText(text, x, y);
+        }
+        function drawPanelBox(x, y, w, h) {
+            ctx.fillStyle = "rgba(0,0,0,0.20)";
+            ctx.fillRect(x, y, w, h);
+            ctx.strokeStyle = "rgba(255,255,255,0.18)";
+            ctx.lineWidth = 1;
+            ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+        }
+        function normalizeTo4(shape) {
+            const coords = [];
+            for (let y = 0; y < shape.length; y++) {
+                for (let x = 0; x < shape[y].length; x++) {
+                    if (shape[y][x]) coords.push([x, y]);
+                }
+            }
+            if (coords.length === 0) return Array.from({ length: 4 }, () => Array(4).fill(0));
+
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            for (const [x, y] of coords) {
+                minX = Math.min(minX, x); minY = Math.min(minY, y);
+                maxX = Math.max(maxX, x); maxY = Math.max(maxY, y);
+            }
+            const w = maxX - minX + 1;
+            const h = maxY - minY + 1;
+            const offX = Math.floor((4 - w) / 2);
+            const offY = Math.floor((4 - h) / 2);
+
+            const out = Array.from({ length: 4 }, () => Array(4).fill(0));
+            for (const [x, y] of coords) {
+                out[(y - minY) + offY][(x - minX) + offX] = 1;
+            }
+            return out;
+        }
+        function drawMini(type, x, y, cell) {
+            if (!type) return;
+            const shape4 = normalizeTo4(SHAPES[type]);
+            for (let r = 0; r < 4; r++) {
+                for (let c = 0; c < 4; c++) {
+                    if (!shape4[r][c]) continue;
+                    ctx.fillStyle = COLORS[type];
+                    ctx.fillRect(x + c * cell + 1, y + r * cell + 1, cell - 2, cell - 2);
+                }
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            drawPanelBox(0, 0, PANEL_W, BOARD_H);
+            drawPanelBox(BOARD_X, 0, BOARD_W, BOARD_H);
+            drawPanelBox(BOARD_X + BOARD_W, 0, PANEL_W, BOARD_H);
+
+            // HOLD（左上）
+            const holdBoxX = 12, holdBoxY = 12;
+            drawLabel("HOLD", holdBoxX, holdBoxY + 14);
+            const holdInnerX = holdBoxX, holdInnerY = holdBoxY + 22;
+            const holdBoxW = PANEL_W - 24, holdBoxH = 120;
+            drawPanelBox(holdInnerX, holdInnerY, holdBoxW, holdBoxH);
+            const miniCell = 22;
+            const miniStartX = holdInnerX + Math.floor((holdBoxW - miniCell * 4) / 2);
+            const miniStartY = holdInnerY + Math.floor((holdBoxH - miniCell * 4) / 2);
+            drawMini(hold, miniStartX, miniStartY, miniCell);
+
+            // NEXT（右上：4つ）
+            fillNextQueue();
+            const nextBoxX = BOARD_X + BOARD_W + 12;
+            const nextBoxY = 12;
+            drawLabel("NEXT", nextBoxX, nextBoxY + 14);
+            const itemW = PANEL_W - 24;
+            const itemH = 110;
+            for (let i = 0; i < 4; i++) {
+                const boxY = nextBoxY + 22 + i * (itemH + 10);
+                drawPanelBox(nextBoxX, boxY, itemW, itemH);
+                const t = nextQueue[i];
+                const cell = 20;
+                const sx = nextBoxX + Math.floor((itemW - cell * 4) / 2);
+                const sy = boxY + Math.floor((itemH - cell * 4) / 2);
+                drawMini(t, sx, sy, cell);
+            }
+
+            // 盤面グリッド
+            ctx.strokeStyle = "rgba(255,255,255,0.07)";
+            for (let x = 1; x < COLS; x++) {
+                ctx.beginPath();
+                ctx.moveTo(BOARD_X + x * SIZE + 0.5, 0);
+                ctx.lineTo(BOARD_X + x * SIZE + 0.5, BOARD_H);
+                ctx.stroke();
+            }
+            for (let y = 1; y < ROWS; y++) {
+                ctx.beginPath();
+                ctx.moveTo(BOARD_X, y * SIZE + 0.5);
+                ctx.lineTo(BOARD_X + BOARD_W, y * SIZE + 0.5);
+                ctx.stroke();
+            }
+
+            // 固定ブロック
+            for (let y = 0; y < ROWS; y++) {
+                for (let x = 0; x < COLS; x++) {
+                    const v = board[y][x];
+                    if (!v) continue;
+                    drawCell(BOARD_X + x * SIZE, y * SIZE, COLORS[v]);
+                }
+            }
+
+            // 現在のミノ
+            piece.shape.forEach((r, y) => {
+                r.forEach((v, x) => {
+                    if (!v) return;
+                    const px = BOARD_X + (piece.x + x) * SIZE;
+                    const py = (piece.y + y) * SIZE;
+                    if (piece.y + y >= 0) drawCell(px, py, COLORS[piece.type]);
+                });
+            });
+
+            // PAUSE表示
+            if (paused) {
+                ctx.fillStyle = "rgba(0,0,0,0.45)";
+                ctx.fillRect(BOARD_X, 0, BOARD_W, BOARD_H);
+                ctx.fillStyle = "rgba(255,255,255,0.92)";
+                ctx.font = "700 34px system-ui";
+                ctx.textAlign = "center";
+                ctx.fillText("PAUSED", BOARD_X + BOARD_W / 2, BOARD_H / 2);
+                ctx.textAlign = "start";
+            }
+        }
+
+        // ===== 長押し処理（DAS/ARR/SDR） =====
+        function handleHeldKeys(time) {
+            if (keys.left.down && time >= keys.left.nextRepeat) {
+                tryMove(-1);
+                keys.left.nextRepeat = time + ARR;
+            }
+            if (keys.right.down && time >= keys.right.nextRepeat) {
+                tryMove(1);
+                keys.right.nextRepeat = time + ARR;
+            }
+            if (keys.down.down && time >= keys.down.nextRepeat) {
+                trySoftDrop();
+                keys.down.nextRepeat = time + SDR;
+            }
+        }
+
+        // ===== ループ =====
+        function update(time = 0) {
+            if (!paused) {
+                handleHeldKeys(time);
+
+                const delta = time - last;
+                last = time;
+                dropCounter += delta;
+
+                if (dropCounter > dropTime) {
+                    piece.y++;
+                    if (collide(piece)) {
+                        piece.y--;
+                        lock();
+                    }
+                    dropCounter = 0;
+                    lastMoveWasRotate = false;
+                }
+            }
+
+            draw();
+            document.getElementById("score").textContent = score;
+            document.getElementById("lines").textContent = lines;
+            document.getElementById("level").textContent = level;
+
+            requestAnimationFrame(update);
+        }
+
+        // ===== 入力 =====
+        document.addEventListener("keydown", e => {
+            if (["ArrowLeft", "ArrowRight", "ArrowDown", "ArrowUp", " "].includes(e.key)) e.preventDefault();
+            if (e.repeat) return;
+
+            if (e.key === "p" || e.key === "P") { paused = !paused; return; }
+            if (e.key === "r" || e.key === "R") { reset(); return; }
+            if (paused) return;
+
+            const t = performance.now();
+
+            if (e.key === "ArrowLeft") {
+                tryMove(-1);
+                keys.left.down = true;
+                keys.left.nextRepeat = t + DAS;
+                return;
+            }
+            if (e.key === "ArrowRight") {
+                tryMove(1);
+                keys.right.down = true;
+                keys.right.nextRepeat = t + DAS;
+                return;
+            }
+            if (e.key === "ArrowDown") {
+                trySoftDrop();
+                keys.down.down = true;
+                keys.down.nextRepeat = t + SDR;
+                return;
+            }
+
+            if (e.key === "ArrowUp") { hardDrop(); return; }
+            if (e.key === "x" || e.key === "X") { rotatePiece(1); return; }
+            if (e.key === "z" || e.key === "Z") { rotatePiece(-1); return; }
+
+            // Space ホールド
+            if (e.key === " ") {
+                if (!canHold) return;
+                canHold = false;
+
+                lastMoveWasRotate = false;
+
+                if (!hold) {
+                    hold = piece.type;
+                    piece = spawnFromType(takeNextType());
+                } else {
+                    const tmp = hold;
+                    hold = piece.type;
+                    piece = spawnFromType(tmp);
+                }
+                piece.x = (COLS / 2 | 0) - 1;
+                piece.y = 0;
+                if (collide(piece)) reset();
+            }
+        });
+
+        document.addEventListener("keyup", e => {
+            if (e.key === "ArrowLeft") keys.left.down = false;
+            else if (e.key === "ArrowRight") keys.right.down = false;
+            else if (e.key === "ArrowDown") keys.down.down = false;
+        });
+
+        // ===== リセット =====
+        function reset() {
+            resetBoard();
+            score = 0; lines = 0; level = 1;
+            dropTime = 800;
+            dropCounter = 0;
+            paused = false;
+
+            hold = null;
+            canHold = true;
+
+            b2b = false;
+            combo = -1;
+            document.getElementById("combo").textContent = "-";
+            document.getElementById("btb").textContent = "-";
+
+            // 7-bag初期化
+            bag = [];
+            refillBag();
+            nextQueue = [];
+            fillNextQueue();
+
+            piece = spawnFromType(takeNextType());
+            piece.x = (COLS / 2 | 0) - 1;
+            piece.y = 0;
+
+            lastMoveWasRotate = false;
+
+            keys.left.down = keys.right.down = keys.down.down = false;
+            keys.left.nextRepeat = keys.right.nextRepeat = keys.down.nextRepeat = 0;
+
+            last = performance.now();
+        }
+
+        // start
+        reset();
+        update();
+    </script>
+</body>
+
+</html>

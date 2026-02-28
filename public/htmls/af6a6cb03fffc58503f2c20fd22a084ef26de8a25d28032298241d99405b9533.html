@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <title>ねこクエスト：またたびの伝説 FINAL</title>
+    <style>
+        body {
+            background: #333;
+            color: #fff;
+            font-family: "PixelMplus12", monospace;
+            text-align: center;
+        }
+
+        .game {
+            width: 720px;
+            margin: auto;
+            background: #555;
+            padding: 20px;
+            border-radius: 10px;
+        }
+
+        .status {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 10px;
+        }
+
+        .battle {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            margin: 20px 0;
+        }
+
+        .character {
+            position: relative;
+            width: 96px;
+            height: 96px;
+        }
+
+        .character img {
+            image-rendering: pixelated;
+            width: 96px;
+            height: 96px;
+        }
+
+        .hat {
+            position: absolute;
+            top: -10px;
+            left: 20px;
+            width: 48px;
+            display: none;
+        }
+
+        .enemy {
+            width: 96px;
+            height: 96px;
+            image-rendering: pixelated;
+        }
+
+        button {
+            margin: 5px;
+            padding: 10px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .log {
+            background: #222;
+            height: 120px;
+            overflow-y: auto;
+            padding: 10px;
+            margin-top: 10px;
+            text-align: left;
+            font-size: 13px;
+        }
+
+        .shop {
+            margin-top: 15px;
+            background: #444;
+            padding: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🐱 ねこクエスト：またたびの伝説</h1>
+    <div class="game">
+        <div class="status">
+            <div>HP: <span id="hp">100</span></div>
+            <div>XP: <span id="xp">0</span></div>
+            <div>Gold: <span id="gold">50</span></div>
+            <div>Lv: <span id="lv">1</span></div>
+        </div>
+        <div class="battle">
+            <div class="character">
+                <img src="cat.png" alt="ねこ">
+                <img src="hat.png" class="hat" id="hat">
+            </div>
+            <img id="enemy" class="enemy" src="slime.png">
+        </div>
+        <div>
+            <button onclick="attack()">たたかう</button>
+            <button onclick="useItem()">またたび</button>
+            <button onclick="nextEnemy()">次の敵</button>
+        </div>
+        <div class="shop">
+            <h3>🏪 ショップ</h3>
+            <p>またたび（HP+30） - 10G</p>
+            <button onclick="buyMatatabi()">購入</button>
+            <p>帽子（防御+2） - 30G</p>
+            <button onclick="buyHat()">購入</button>
+        </div>
+        <div class="log" id="log"></div>
+    </div>
+    <script>
+        let hp = 100;
+        let xp = 0;
+        let gold = 50;
+        let level = 1;
+        let enemyHP = 30;
+        let matatabi = 0;
+        let hatOwned = false;
+        const colors = ["blue", "red", "yellow", "cyan", "purple", "orange", "pink"];
+        function log(text) {
+            const logBox = document.getElementById("log");
+            logBox.innerHTML += text + "<br>";
+            logBox.scrollTop = logBox.scrollHeight;
+        }
+        function update() {
+            hp = Math.max(0, hp);
+            document.getElementById("hp").textContent = hp;
+            document.getElementById("xp").textContent = xp;
+            document.getElementById("gold").textContent = gold;
+            document.getElementById("lv").textContent = level;
+        }
+        function attack() {
+            enemyHP -= 10;
+            log("ねこのこうげき！");
+            if (enemyHP <= 0) {
+                log("スライムをたおした！");
+                xp += 10;
+                gold += 10;
+                if (xp >= level * 20) {
+                    level++;
+                    xp = 0;
+                    hp = 100;
+                    log("レベルアップ！");
+                }
+                setTimeout(nextEnemy, 500);
+            } else {
+                enemyAttack();
+            }
+            update();
+        }
+        function enemyAttack() {
+            hp -= 5;
+            log("スライムのこうげき！");
+            if (hp <= 0) {
+                log("ねこはたおれてしまった…");
+            }
+        }
+        function nextEnemy() {
+            enemyHP = 30 + Math.floor(Math.random() * 30);
+            const enemy = document.getElementById("enemy");
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            enemy.style.filter = `hue-rotate(${Math.random() * 360}deg)`;
+            log("あたらしいスライムがあらわれた！");
+        }
+        function buyMatatabi() {
+            if (gold >= 10) {
+                gold -= 10;
+                matatabi++;
+                log("またたびを買った！");
+                update();
+            }
+        }
+        function useItem() {
+            if (matatabi > 0) {
+                matatabi--;
+                hp += 30;
+                log("またたびを使った！");
+                update();
+            }
+        }
+        function buyHat() {
+            if (gold >= 30 && !hatOwned) {
+                gold -= 30;
+                hatOwned = true;
+                document.getElementById("hat").style.display = "block";
+                log("帽子を装備した！");
+                update();
+            }
+        }
+        nextEnemy();
+        update();
+    </script>
+</body>
+
+</html>
+
+<!-- もしも絵が表示されない場合はこのコードに置き換える(超重要)
+一応同じフォルダに以下を置いてください
+● cat.png（黒猫ドット絵）
+● slime.png（さっきのスライム画像）
+● hat.png（ドット帽子） 追記 Webエディタで絵が表示されないだけでコードの問題は何もないと思います！ -->

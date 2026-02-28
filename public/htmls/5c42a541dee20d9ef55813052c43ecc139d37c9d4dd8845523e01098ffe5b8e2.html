@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AIメール・ポリッシャー</title>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f0f4f8;
+            color: #333;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+
+        h1 {
+            color: #1a73e8;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #555;
+        }
+
+        textarea,
+        select {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 20px;
+            border: 1px solid #ccd1d5;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 1rem;
+        }
+
+        button {
+            width: 100%;
+            padding: 18px;
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        button:hover {
+            background-color: #1557b0;
+        }
+
+        .result-section {
+            margin-top: 30px;
+            display: none;
+        }
+
+        .box {
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border: 1px solid #e1e4e8;
+        }
+
+        .email-out {
+            background: #f8f9fa;
+            white-space: pre-wrap;
+            font-family: 'Consolas', monospace;
+        }
+
+        .analysis-out {
+            background: #e7f3ff;
+            border-left: 5px solid #1a73e8;
+        }
+
+        .impression-out {
+            background: #f0fff4;
+            border-left: 5px solid #28a745;
+        }
+
+        .loading {
+            text-align: center;
+            display: none;
+            margin-top: 20px;
+            color: #1a73e8;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>✉️ AIメール・ポリッシャー</h1>
+        <label>伝えたい内容（メモ書きでOK）:</label>
+        <textarea id="draftInput" rows="5" placeholder="例：納期が遅れる。金曜まで待って。"></textarea>
+        <label>トーン設定:</label>
+        <select id="toneSelect">
+            <option value="丁寧で誠実なトーン">丁寧で誠実なトーン</option>
+            <option value="論理的で毅然としたトーン">論理的で毅然としたトーン</option>
+        </select>
+        <button id="runBtn">プロの文面に清書する</button>
+        <div id="loading" class="loading">AIが最適な表現を選定中...</div>
+        <div id="resultSection" class="result-section">
+            <label>✨ 清書されたメール</label>
+            <div id="emailOut" class="box email-out"></div>
+            <label>💡 修正のポイント</label>
+            <div id="mannerOut" class="box analysis-out"></div>
+            <label>📊 相手への印象</label>
+            <div id="impressionOut" class="box impression-out"></div>
+        </div>
+    </div>
+    <script>
+        const API_KEY = "AIzaSyBcyR__-zADbNFTGgk4s2L_WIVRn7djO84";
+        document.getElementById('runBtn').addEventListener('click', async () => {
+            const draft = document.getElementById('draftInput').value;
+            const tone = document.getElementById('toneSelect').value;
+            const resSec = document.getElementById('resultSection');
+            const load = document.getElementById('loading');
+            if (!draft) return alert("内容を入力してください");
+            load.style.display = 'block'; resSec.style.display = 'none';
+
+            // AIが区切りやすいように指示を強化
+            const prompt = `以下の下書きを「${tone}」でビジネスメールに清書してください。
+        回答は必ず以下の形式にしてください。
+        【メール本文】
+        （ここにメール）
+        【修正ポイント】
+        （ここに解説）
+        【相手への印象】
+        （ここに印象分析）
+        
+        下書き：${draft}`;
+
+            try {
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                });
+                const data = await res.json();
+                const text = data.candidates[0].content.parts[0].text;
+
+                // キーワードで分割
+                const emailPart = text.split('【修正ポイント】')[0].replace('【メール本文】', '').trim();
+                const mannerPart = text.split('【修正ポイント】')[1].split('【相手への印象】')[0].trim();
+                const impressionPart = text.split('【相手への印象】')[1].trim();
+
+                document.getElementById('emailOut').innerText = emailPart;
+                document.getElementById('mannerOut').innerText = mannerPart;
+                document.getElementById('impressionOut').innerText = impressionPart;
+                resSec.style.display = 'block';
+            } catch (e) {
+                alert("通信エラーが発生しました。しばらく時間を置いてお試しください。");
+            } finally {
+                load.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+
+</html>

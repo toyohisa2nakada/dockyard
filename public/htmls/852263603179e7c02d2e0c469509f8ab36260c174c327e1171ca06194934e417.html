@@ -1,0 +1,765 @@
+<!doctype html>
+<html lang="ja">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>TypeSushi - 寿司打風タイピング</title>
+    <style>
+        :root {
+            --bg: #0b1020;
+            --panel: #121a33;
+            --text: #e8eeff;
+            --muted: #9fb0ff;
+            --good: #4dff9a;
+            --bad: #ff4d6d;
+            --warn: #ffd24d;
+            --shadow: 0 12px 30px rgba(0, 0, 0, .35);
+            --radius: 18px;
+            --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            --sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: var(--sans);
+            color: var(--text);
+            background:
+                radial-gradient(1200px 900px at 20% 15%, rgba(99, 102, 241, .25), transparent 60%),
+                radial-gradient(900px 700px at 80% 10%, rgba(34, 197, 94, .20), transparent 55%),
+                radial-gradient(900px 700px at 70% 90%, rgba(251, 191, 36, .18), transparent 55%),
+                var(--bg);
+        }
+
+        main {
+            max-width: 1050px;
+            margin: 28px auto;
+            padding: 18px;
+        }
+
+        header {
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+            justify-content: space-between;
+            flex-wrap: wrap;
+        }
+
+        h1 {
+            margin: 0;
+            letter-spacing: .2px;
+        }
+
+        .sub {
+            margin: 6px 0 0;
+            color: var(--muted);
+            font-size: .95rem;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        label {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            background: rgba(255, 255, 255, .06);
+            padding: 10px 12px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, .08);
+        }
+
+        select,
+        button,
+        input {
+            font-family: inherit;
+            font-size: 14px;
+        }
+
+        select {
+            background: transparent;
+            border: none;
+            color: var(--text);
+            outline: none;
+        }
+
+        button {
+            border: 1px solid rgba(255, 255, 255, .12);
+            background: rgba(255, 255, 255, .06);
+            color: var(--text);
+            padding: 10px 14px;
+            border-radius: 999px;
+            cursor: pointer;
+            transition: transform .05s ease, background .2s ease;
+        }
+
+        button:hover {
+            background: rgba(255, 255, 255, .10);
+        }
+
+        button:active {
+            transform: translateY(1px);
+        }
+
+        button.primary {
+            background: rgba(99, 102, 241, .25);
+            border-color: rgba(99, 102, 241, .55);
+        }
+
+        button.primary:hover {
+            background: rgba(99, 102, 241, .32);
+        }
+
+        .hud {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .card {
+            background: linear-gradient(180deg, rgba(255, 255, 255, .07), rgba(255, 255, 255, .04));
+            border: 1px solid rgba(255, 255, 255, .08);
+            border-radius: var(--radius);
+            padding: 12px 14px;
+            box-shadow: var(--shadow);
+        }
+
+        .k {
+            color: var(--muted);
+            font-size: .82rem;
+            letter-spacing: .18em;
+        }
+
+        .v {
+            font-family: var(--mono);
+            font-size: 1.6rem;
+            margin-top: 6px;
+        }
+
+        .stage {
+            margin-top: 14px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, .05), rgba(255, 255, 255, .03));
+            border: 1px solid rgba(255, 255, 255, .08);
+            border-radius: var(--radius);
+            padding: 16px;
+            box-shadow: var(--shadow);
+        }
+
+        .lane {
+            position: relative;
+            height: 84px;
+            border-radius: 14px;
+            overflow: hidden;
+            background: rgba(0, 0, 0, .25);
+            border: 1px solid rgba(255, 255, 255, .08);
+        }
+
+        .word {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            padding: 8px 12px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, .08);
+            border: 1px solid rgba(255, 255, 255, .10);
+            font-family: var(--mono);
+            white-space: nowrap;
+            user-select: none;
+            will-change: left;
+        }
+
+        .word.good {
+            border-color: rgba(77, 255, 154, .7);
+        }
+
+        .word.bad {
+            border-color: rgba(255, 77, 109, .7);
+        }
+
+        .typing {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr;
+            gap: 14px;
+            margin-top: 14px;
+            align-items: stretch;
+        }
+
+        .targetWrap,
+        .inputWrap {
+            background: rgba(0, 0, 0, .22);
+            border: 1px solid rgba(255, 255, 255, .08);
+            border-radius: 14px;
+            padding: 12px;
+        }
+
+        .label {
+            color: var(--muted);
+            font-size: .82rem;
+            letter-spacing: .18em;
+        }
+
+        .target {
+            margin-top: 10px;
+            font-family: var(--mono);
+            font-size: 1.35rem;
+            line-height: 1.7;
+            word-break: break-word;
+            min-height: 2.2em;
+        }
+
+        #targetDone {
+            color: var(--good);
+        }
+
+        #targetRest {
+            color: var(--text);
+            opacity: .95;
+        }
+
+        input {
+            width: 100%;
+            margin-top: 10px;
+            padding: 12px 12px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, .10);
+            background: rgba(255, 255, 255, .04);
+            color: var(--text);
+            outline: none;
+            font-family: var(--mono);
+            font-size: 1.05rem;
+        }
+
+        input:focus {
+            border-color: rgba(99, 102, 241, .7);
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, .15);
+        }
+
+        input.bad {
+            border-color: rgba(255, 77, 109, .8);
+            box-shadow: 0 0 0 4px rgba(255, 77, 109, .12);
+        }
+
+        .tips {
+            grid-column: 1 / -1;
+            color: var(--muted);
+            font-size: .95rem;
+            padding: 0 4px;
+        }
+
+        .tips b {
+            color: var(--warn);
+        }
+
+        .footer {
+            margin-top: 14px;
+        }
+
+        .panel {
+            background: linear-gradient(180deg, rgba(255, 255, 255, .05), rgba(255, 255, 255, .03));
+            border: 1px solid rgba(255, 255, 255, .08);
+            border-radius: var(--radius);
+            padding: 14px 16px;
+            box-shadow: var(--shadow);
+        }
+
+        .panel h2 {
+            margin: 0 0 8px;
+            font-size: 1.05rem;
+        }
+
+        ol {
+            margin: 8px 0 0 18px;
+        }
+
+        .note {
+            color: var(--muted);
+            margin: 8px 0 0;
+            font-size: .9rem;
+        }
+
+        @media (max-width: 860px) {
+            .hud {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .typing {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <main>
+        <header>
+            <div>
+                <h1>TypeSushi</h1>
+                <p class="sub">流れてくる単語を打ってスコアを稼ぐ（寿司打風・オリジナル実装）</p>
+            </div>
+            <div class="controls">
+                <label>
+                    難易度
+                    <select id="difficulty">
+                        <option value="easy">Easy</option>
+                        <option value="normal" selected>Normal</option>
+                        <option value="hard">Hard</option>
+                    </select>
+                </label>
+                <label>
+                    制限時間
+                    <select id="duration">
+                        <option value="60">60秒</option>
+                        <option value="90" selected>90秒</option>
+                        <option value="120">120秒</option>
+                    </select>
+                </label>
+                <button id="startBtn" class="primary">START</button>
+                <button id="resetBtn">RESET</button>
+            </div>
+        </header>
+
+        <section class="hud">
+            <div class="card">
+                <div class="k">TIME</div>
+                <div class="v" id="timeLeft">--</div>
+            </div>
+            <div class="card">
+                <div class="k">SCORE</div>
+                <div class="v" id="score">0</div>
+            </div>
+            <div class="card">
+                <div class="k">WPM</div>
+                <div class="v" id="wpm">0</div>
+            </div>
+            <div class="card">
+                <div class="k">ACC</div>
+                <div class="v" id="acc">0%</div>
+            </div>
+            <div class="card">
+                <div class="k">BEST</div>
+                <div class="v" id="best">0</div>
+            </div>
+        </section>
+
+        <section class="stage">
+            <div class="lane" id="lane" aria-label="word lane"></div>
+
+            <div class="typing">
+                <div class="targetWrap">
+                    <div class="label">TARGET</div>
+                    <div class="target">
+                        <span id="targetDone"></span><span id="targetRest"></span>
+                    </div>
+                </div>
+
+                <label class="inputWrap">
+                    <span class="label">INPUT</span>
+                    <input id="input" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"
+                        placeholder="ここに入力（Enterでスキップ）" />
+                </label>
+
+                <div class="tips" id="tips"></div>
+            </div>
+        </section>
+
+        <section class="footer">
+            <div class="panel">
+                <h2>ランキング（ローカル保存）</h2>
+                <ol id="board"></ol>
+                <p class="note">※このランキングはブラウザのLocalStorageに保存されます。</p>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        'use strict';
+
+        /**
+         * TypeSushi (寿司打風タイピング / Single File)
+         * - requestAnimationFrameで単語を流す
+         * - 入力は逐次照合（部分一致）
+         * - WPM/正確率/スコア計算
+         * - LocalStorageにランキング保存
+         */
+
+        const $ = (sel) => document.querySelector(sel);
+
+        const UI = {
+            difficulty: $('#difficulty'),
+            duration: $('#duration'),
+            startBtn: $('#startBtn'),
+            resetBtn: $('#resetBtn'),
+            lane: $('#lane'),
+            input: $('#input'),
+            tips: $('#tips'),
+            timeLeft: $('#timeLeft'),
+            score: $('#score'),
+            wpm: $('#wpm'),
+            acc: $('#acc'),
+            best: $('#best'),
+            targetDone: $('#targetDone'),
+            targetRest: $('#targetRest'),
+            board: $('#board'),
+        };
+
+        const STORAGE_KEY = 'typesushi.leaderboard.v1';
+
+        const WORDS = {
+            easy: [
+                'sushi', 'tuna', 'salmon', 'ebi', 'ika', 'tako', 'rice', 'nori', 'wasabi', 'miso',
+                'ramen', 'tea', 'sake', 'soy', 'menu', 'plate', 'chef', 'fresh', 'taste', 'umai'
+            ],
+            normal: [
+                'maguro', 'hamachi', 'ikura', 'tamago', 'unagi', 'hotate', 'mentai', 'kanpyo',
+                'shari', 'itamae', 'irasshai', 'osusume', 'kaiten', 'nigiri', 'gunkan', 'aburi'
+            ],
+            hard: [
+                'shiro-ika', 'katsuo-tataki', 'negitoro-gunkan', 'tokusen-maguro',
+                'hokkaido-hotate', 'aburi-salmon-cheese', 'yuzu-kosho', 'shiso-maki',
+                'kohada-sugata', 'kani-miso-gunkan'
+            ],
+        };
+
+        function clamp(n, a, b) { return Math.max(a, Math.min(b, n)); }
+        function nowMs() { return performance.now(); }
+
+        function loadBoard() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                const data = raw ? JSON.parse(raw) : [];
+                return Array.isArray(data) ? data : [];
+            } catch {
+                return [];
+            }
+        }
+
+        function saveBoard(entries) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(entries.slice(0, 10)));
+        }
+
+        function renderBoard() {
+            const b = loadBoard();
+            UI.board.innerHTML = '';
+            if (b.length === 0) {
+                const li = document.createElement('li');
+                li.textContent = 'まだ記録がありません';
+                UI.board.appendChild(li);
+                return;
+            }
+            for (const e of b) {
+                const li = document.createElement('li');
+                li.textContent = `${e.score}pt / ${e.wpm} WPM / ${e.acc}% / ${e.date}`;
+                UI.board.appendChild(li);
+            }
+        }
+
+        function getBestScore() {
+            const b = loadBoard();
+            return b.length ? b[0].score : 0;
+        }
+
+        class WordSprite {
+            constructor(text, speedPxPerSec) {
+                this.text = text;
+                this.speed = speedPxPerSec;
+                this.x = UI.lane.clientWidth + 20;
+                this.done = false;
+
+                this.el = document.createElement('div');
+                this.el.className = 'word';
+                this.el.textContent = text;
+                UI.lane.appendChild(this.el);
+                this.layout();
+            }
+            layout() {
+                this.el.style.left = `${this.x}px`;
+            }
+            update(dtSec) {
+                this.x -= this.speed * dtSec;
+                this.layout();
+                if (this.x + this.el.offsetWidth < -10) {
+                    this.done = true;
+                    this.el.classList.add('bad');
+                }
+            }
+            destroy() {
+                this.el.remove();
+            }
+        }
+
+        class Game {
+            constructor() { this.reset(); }
+
+            reset() {
+                this.running = false;
+                this.rafId = null;
+
+                this.startTime = 0;
+                this.lastFrame = 0;
+                this.timeLimitSec = 90;
+
+                this.spawnTimer = 0;
+                this.spawnIntervalSec = 1.15;
+
+                this.difficulty = 'normal';
+                this.sprites = [];
+                this.queue = [];
+                this.target = '';
+                this.progress = 0;
+
+                this.score = 0;
+                this.correctChars = 0;
+                this.totalTyped = 0;
+                this.correctWords = 0;
+                this.missedWords = 0;
+
+                this._prevInput = '';
+
+                UI.lane.innerHTML = '';
+                UI.input.value = '';
+                UI.input.classList.remove('bad');
+                UI.targetDone.textContent = '';
+                UI.targetRest.textContent = '';
+                UI.tips.innerHTML = 'STARTを押して開始。<b>Enter</b>でスキップ。';
+                this.renderHUD(0);
+            }
+
+            configFromUI() {
+                this.difficulty = UI.difficulty.value;
+                this.timeLimitSec = parseInt(UI.duration.value, 10) || 90;
+
+                if (this.difficulty === 'easy') {
+                    this.spawnIntervalSec = 1.25;
+                    this.baseSpeed = 120;
+                } else if (this.difficulty === 'hard') {
+                    this.spawnIntervalSec = 0.85;
+                    this.baseSpeed = 220;
+                } else {
+                    this.spawnIntervalSec = 1.05;
+                    this.baseSpeed = 170;
+                }
+            }
+
+            start() {
+                if (this.running) return;
+                this.reset();
+                this.configFromUI();
+
+                this.running = true;
+                this.startTime = nowMs();
+                this.lastFrame = this.startTime;
+
+                UI.input.disabled = false;
+                UI.input.focus();
+
+                this.refillQueue();
+                this.pickNextTarget();
+                this.loop();
+            }
+
+            end() {
+                if (!this.running) return;
+                this.running = false;
+                if (this.rafId) cancelAnimationFrame(this.rafId);
+
+                UI.input.disabled = true;
+
+                const wpm = this.computeWPM();
+                const acc = this.computeAcc();
+                const entry = {
+                    score: this.score,
+                    wpm,
+                    acc,
+                    date: new Date().toLocaleString('ja-JP', { hour12: false }),
+                };
+
+                const board = loadBoard();
+                board.push(entry);
+                board.sort((a, b) => b.score - a.score);
+                saveBoard(board);
+                renderBoard();
+                UI.best.textContent = String(getBestScore());
+
+                UI.tips.innerHTML = `終了！ スコア<b>${this.score}</b> / WPM<b>${wpm}</b> / 正確率<b>${acc}%</b>。もう一回やるならSTART。`;
+            }
+
+            loop() {
+                this.rafId = requestAnimationFrame(() => this.loop());
+
+                const t = nowMs();
+                const dtSec = (t - this.lastFrame) / 1000;
+                this.lastFrame = t;
+
+                const elapsedSec = (t - this.startTime) / 1000;
+                const left = this.timeLimitSec - elapsedSec;
+                this.renderHUD(left);
+
+                if (left <= 0) {
+                    this.end();
+                    return;
+                }
+
+                this.spawnTimer += dtSec;
+                while (this.spawnTimer >= this.spawnIntervalSec) {
+                    this.spawnTimer -= this.spawnIntervalSec;
+                    this.spawnWord();
+                }
+
+                for (const s of this.sprites) s.update(dtSec);
+
+                const alive = [];
+                for (const s of this.sprites) {
+                    if (s.done) {
+                        s.destroy();
+                        this.missedWords += 1;
+                    } else {
+                        alive.push(s);
+                    }
+                }
+                this.sprites = alive;
+            }
+
+            renderHUD(timeLeftSec) {
+                const left = clamp(Math.ceil(timeLeftSec), 0, 9999);
+                UI.timeLeft.textContent = this.running ? String(left) : '--';
+                UI.score.textContent = String(this.score);
+                UI.wpm.textContent = String(this.computeWPM());
+                UI.acc.textContent = `${this.computeAcc()}%`;
+            }
+
+            computeWPM() {
+                if (!this.running && this.startTime === 0) return 0;
+                const elapsedMin = this.running
+                    ? (nowMs() - this.startTime) / 60000
+                    : (this.timeLimitSec / 60);
+                const words = this.correctChars / 5; // 5 chars = 1 word
+                return Math.max(0, Math.round(words / Math.max(elapsedMin, 1e-6)));
+            }
+
+            computeAcc() {
+                if (this.totalTyped === 0) return 0;
+                return clamp(Math.round((this.correctChars / this.totalTyped) * 100), 0, 100);
+            }
+
+            refillQueue() {
+                const list = WORDS[this.difficulty] ?? WORDS.normal;
+                while (this.queue.length < 8) {
+                    const w = list[Math.floor(Math.random() * list.length)];
+                    this.queue.push(w);
+                }
+            }
+
+            pickNextTarget() {
+                this.refillQueue();
+                this.target = this.queue.shift();
+                this.progress = 0;
+                this.renderTarget();
+            }
+
+            renderTarget() {
+                UI.targetDone.textContent = this.target.slice(0, this.progress);
+                UI.targetRest.textContent = this.target.slice(this.progress);
+            }
+
+            spawnWord() {
+                this.refillQueue();
+                const text = this.queue[Math.floor(Math.random() * this.queue.length)];
+                const jitter = (Math.random() - 0.5) * 40;
+                const speed = clamp(this.baseSpeed + jitter, 80, 360);
+                const sp = new WordSprite(text, speed);
+                this.sprites.push(sp);
+            }
+
+            onType(inputValue) {
+                if (!this.running) return;
+
+                const expectedPrefix = this.target.slice(0, inputValue.length);
+                const ok = inputValue === expectedPrefix;
+
+                // 入力差分を統計へ（キー単位ではないが、実用上は十分）
+                const delta = inputValue.length - this._prevInput.length;
+                if (delta > 0) {
+                    this.totalTyped += delta;
+                    const added = inputValue.slice(-delta);
+                    const expAdded = this.target.slice(this._prevInput.length, this._prevInput.length + delta);
+                    for (let i = 0; i < added.length; i++) {
+                        if (added[i] === expAdded[i]) this.correctChars += 1;
+                    }
+                }
+                this._prevInput = inputValue;
+
+                if (ok) {
+                    UI.input.classList.remove('bad');
+                    this.progress = inputValue.length;
+                    this.renderTarget();
+
+                    if (this.progress === this.target.length) {
+                        const diffMul = this.difficulty === 'easy' ? 1 : this.difficulty === 'hard' ? 1.6 : 1.25;
+                        const gained = Math.round((10 + this.target.length * 3) * diffMul);
+                        this.score += gained;
+                        this.correctWords += 1;
+
+                        const hit = this.sprites.find(s => s.text === this.target && !s.done);
+                        if (hit) hit.el.classList.add('good');
+
+                        UI.input.value = '';
+                        this._prevInput = '';
+                        this.pickNextTarget();
+                    }
+                } else {
+                    UI.input.classList.add('bad');
+                    this.score = Math.max(0, this.score - 1); // 軽いペナルティ
+                }
+            }
+
+            skip() {
+                if (!this.running) return;
+                this.score = Math.max(0, this.score - 8);
+                UI.input.value = '';
+                this._prevInput = '';
+                UI.input.classList.remove('bad');
+                this.pickNextTarget();
+            }
+        }
+
+        const game = new Game();
+
+        function bind() {
+            UI.best.textContent = String(getBestScore());
+            renderBoard();
+
+            UI.startBtn.addEventListener('click', () => game.start());
+            UI.resetBtn.addEventListener('click', () => {
+                game.reset();
+                UI.best.textContent = String(getBestScore());
+                renderBoard();
+            });
+
+            UI.input.addEventListener('input', (e) => game.onType(e.target.value));
+
+            UI.input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    game.skip();
+                }
+            });
+
+            // モバイル対策：開始時に入力へフォーカス
+            UI.difficulty.addEventListener('change', () => UI.input.focus());
+            UI.duration.addEventListener('change', () => UI.input.focus());
+        }
+
+        bind();
+    </script>
+</body>
+
+</html>

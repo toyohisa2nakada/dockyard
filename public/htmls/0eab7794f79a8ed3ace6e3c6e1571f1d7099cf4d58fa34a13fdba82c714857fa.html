@@ -1,0 +1,2406 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Splatoon-like - 完全版 (Ver 1.4: 軽量化/最適化)</title>
+    <style>
+        :root {
+            --bg: #0b1320;
+            --panel: #0e1a26;
+            --accent: #5cc800;
+            /* HPバーを緑に変更 */
+            --boss: #9900cc;
+        }
+
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+            background: var(--bg);
+            color: #eaf4ff;
+            font-family: system-ui, "Hiragino Kaku Gothic ProN", Arial;
+            overflow: hidden;
+        }
+
+        .wrap {
+            display: flex;
+            gap: 12px;
+            padding: 12px;
+            align-items: flex-start;
+        }
+
+        .game-container {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* --- ゲーム情報とハイスコアのコンテナ --- */
+        #game-info-container {
+            width: 960px;
+            box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.6);
+            border-radius: 8px 8px 0 0;
+            margin-bottom: -12px;
+            background: #0e1a26;
+        }
+
+        #game-info {
+            height: 30px;
+            padding: 6px 12px 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 15px;
+            color: #fff;
+        }
+
+        #game-info div {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        #game-info span {
+            font-weight: bold;
+        }
+
+        #in-game-round span {
+            color: #33aaff;
+        }
+
+        #in-game-hp span {
+            color: var(--accent);
+            min-width: 80px;
+            text-align: right;
+        }
+
+        #in-game-enemies span {
+            color: #ff8c3a;
+        }
+
+        /* 武器別ハイスコア表示エリア */
+        #weapon-highscores-ingame-container {
+            width: 960px;
+            padding: 4px 12px 6px;
+            background: #182226;
+            border-radius: 0 0 8px 8px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+            margin-top: -12px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            color: #999;
+        }
+
+        #weapon-highscores-ingame {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        #weapon-highscores-ingame>div {
+            display: flex;
+            gap: 4px;
+        }
+
+        #weapon-highscores-ingame span {
+            color: #fff;
+            font-weight: bold;
+        }
+
+        canvas {
+            background: #0b1320;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+        }
+
+        /* 画面下バーの共通スタイル */
+        .in-game-bar-container {
+            width: 150px;
+            height: 16px;
+            background: #222;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-left: 10px;
+        }
+
+        .in-game-bar-fill {
+            display: block;
+            height: 100%;
+            width: 100%;
+        }
+
+        /* HPバー */
+        #hp-bar-ingame .in-game-bar-fill {
+            background: linear-gradient(90deg, var(--accent), #339900);
+        }
+
+        /* チャージバー */
+        #charge-bar-ingame .in-game-bar-fill {
+            background: linear-gradient(90deg, #f3c, #f60);
+        }
+
+        /* クールダウンバー */
+        #cooldown-bar-ingame .in-game-bar-fill {
+            background: linear-gradient(90deg, #ff5555, #cc0000);
+        }
+
+        /* 画面上 チャージ/クールダウン表示 */
+        #charge-info-ingame,
+        #cooldown-info-ingame {
+            display: none;
+            gap: 6px;
+            margin-left: 20px;
+        }
+
+        #charge-info-ingame div:first-child,
+        #cooldown-info-ingame div:first-child {
+            color: #fff;
+            font-weight: bold;
+        }
+
+        #charge-text-ingame {
+            min-width: 50px;
+            text-align: right;
+        }
+
+        #cooldown-text-ingame {
+            min-width: 50px;
+            text-align: right;
+        }
+
+        #ui {
+            width: 320px;
+            max-height: calc(100vh - 24px);
+            overflow-y: auto;
+            background: var(--panel);
+            padding: 12px;
+            border-radius: 8px;
+        }
+
+        .panel {
+            background: #071018aa;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+        }
+
+        h2 {
+            margin: 0 0 8px 0;
+            font-size: 16px;
+            color: #fff;
+        }
+
+        h3 {
+            margin: 0 0 6px 0;
+            font-size: 14px;
+            color: #4488ff;
+        }
+
+        .small {
+            font-size: 13px;
+            color: #cfe;
+        }
+
+        .hpbar {
+            height: 14px;
+            background: #222;
+            border-radius: 6px;
+            overflow: hidden;
+            margin-top: 6px;
+        }
+
+        .hpbar>i {
+            display: block;
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), #339900);
+            width: 100%;
+        }
+
+        .stat {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .weapon-btn {
+            display: inline-block;
+            margin-right: 6px;
+            margin-bottom: 4px;
+            padding: 6px 8px;
+            background: #182226;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .weapon-btn.active {
+            box-shadow: 0 0 0 2px #ffffff22;
+            background: #233945;
+        }
+
+        /* --- 武器ロック時のスタイル --- */
+        .weapon-btn.locked {
+            cursor: not-allowed;
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .mode-btn {
+            display: inline-block;
+            margin-right: 6px;
+            padding: 6px 8px;
+            background: #182226;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .mode-btn.active {
+            box-shadow: 0 0 0 2px #ffffff22;
+            background: #233945;
+        }
+
+        .mode-btn.locked {
+            cursor: not-allowed;
+            opacity: 0.4;
+            pointer-events: none;
+        }
+
+        .mode-switch {
+            display: flex;
+            border: 1px solid #334a52;
+            border-radius: 6px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+
+        .mode-switch>.mode-btn {
+            flex: 1;
+            margin: 0;
+            border-radius: 0;
+            padding: 8px 10px;
+            background: #182226;
+            text-align: center;
+            transition: background 0.1s;
+        }
+
+        .mode-switch>.mode-btn.active {
+            background: #4488ff;
+            font-weight: bold;
+            color: #fff;
+            box-shadow: none;
+            opacity: 1;
+        }
+
+        .mode-switch>.mode-btn:not(.active) {
+            background: #23333a;
+            opacity: 0.7;
+        }
+
+        .mode-switch>.mode-btn.locked {
+            cursor: not-allowed;
+            opacity: 0.4;
+            pointer-events: none;
+        }
+
+        label {
+            display: block;
+            margin-top: 6px;
+            font-size: 13px;
+            color: #cfe;
+        }
+
+        input[type="range"] {
+            width: 100%;
+        }
+
+        button {
+            padding: 8px 10px;
+            border-radius: 6px;
+            border: none;
+            background: #23333a;
+            color: #fff;
+            cursor: pointer;
+        }
+
+        #btn-pause {
+            background: #663399;
+        }
+
+        .center {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #overlay {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 640px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9;
+        }
+
+        #overlay .box {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 24px;
+            border-radius: 8px;
+            color: #fff;
+            text-align: center;
+        }
+
+        #pause-overlay {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 640px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 9;
+        }
+
+        #pause-overlay .box {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 24px;
+            border-radius: 8px;
+            color: #fff;
+            text-align: center;
+            font-size: 32px;
+        }
+
+        .charge-ui-group {
+            display: none;
+        }
+
+        /* --- ボス警告オーバーレイ --- */
+        #boss-warning-overlay {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 640px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        #boss-warning-overlay .warning-box {
+            padding: 15px 30px;
+            background: rgba(255, 0, 0, 0.8);
+            color: white;
+            border: 4px solid #ffaa00;
+            border-radius: 12px;
+            font-size: 40px;
+            font-weight: bold;
+            text-shadow: 0 0 10px black;
+        }
+
+        /* --- 通知バー --- */
+        #notification-bar {
+            position: absolute;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            min-width: 300px;
+            padding: 10px 20px;
+            background-color: rgba(255, 50, 50, 0.9);
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 18px;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+            pointer-events: none;
+            z-index: 11;
+            border: 2px solid #fff;
+        }
+
+        #notification-bar.show {
+            opacity: 1;
+        }
+
+        /* --- 変更終了 --- */
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <div class="game-container">
+
+            <div id="game-info-container" style="display: none;">
+                <div id="game-info">
+                    <div id="in-game-round">ROUND: <span>1</span></div>
+
+                    <div id="in-game-hp">
+                        HP:
+                        <span>120 / 120</span>
+                        <div id="hp-bar-ingame" class="in-game-bar-container">
+                            <i id="hp-bar-ingame-fill" class="in-game-bar-fill" style="width: 100%"></i>
+                        </div>
+                    </div>
+
+                    <div id="charge-info-ingame">
+                        <div>Charge:</div>
+                        <div id="charge-text-ingame" style="color: #ff88ff">0%</div>
+                        <div id="charge-bar-ingame" class="in-game-bar-container">
+                            <i id="charge-bar-ingame-fill" class="in-game-bar-fill" style="width: 0%"></i>
+                        </div>
+                    </div>
+
+                    <div id="cooldown-info-ingame">
+                        <div>Cooldown:</div>
+                        <div id="cooldown-text-ingame" style="color: #ff5555">READY</div>
+                        <div id="cooldown-bar-ingame" class="in-game-bar-container">
+                            <i id="cooldown-bar-ingame-fill" class="in-game-bar-fill" style="width: 100%"></i>
+                        </div>
+                    </div>
+                    <div id="in-game-enemies">ENEMIES LEFT: <span>1</span></div>
+                </div>
+            </div>
+
+            <canvas id="game" width="960" height="640"></canvas>
+
+            <div id="weapon-highscores-ingame-container" style="display: none;">
+                <div style="font-weight: bold;">
+                    <span id="current-mode-label">Boss Mode</span> High: <span id="ingame-highscore-current">1</span>
+                </div>
+                <div id="weapon-highscores-ingame">
+                    <div>Shooter (B): <span id="ingame-highscore-shooter-b">1</span></div>
+                    <div>Roller (B): <span id="ingame-highscore-roller-b">1</span></div>
+                    <div>Charger (B): <span id="ingame-highscore-charger-b">1</span></div>
+                    <div>Spinner (B): <span id="ingame-highscore-spinner-b">1</span></div>
+                    <div>Rocket (B): <span id="ingame-highscore-rocket-b">1</span></div>
+                    <div>Shotgun (B): <span id="ingame-highscore-shotgun-b">1</span></div>
+                    <div>Blade (B): <span id="ingame-highscore-blade-b">1</span></div>
+
+                    <div style="margin-left: 10px;">Shooter (R): <span id="ingame-highscore-shooter-r">1</span></div>
+                    <div>Roller (R): <span id="ingame-highscore-roller-r">1</span></div>
+                    <div>Charger (R): <span id="ingame-highscore-charger-r">1</span></div>
+                    <div>Spinner (R): <span id="ingame-highscore-spinner-r">1</span></div>
+                    <div>Rocket (R): <span id="ingame-highscore-rocket-r">1</span></div>
+                    <div>Shotgun (R): <span id="ingame-highscore-shotgun-r">1</span></div>
+                    <div>Blade (R): <span id="ingame-highscore-blade-r">1</span></div>
+                </div>
+            </div>
+
+            <div id="boss-warning-overlay">
+                <div class="warning-box" id="boss-warning-text">
+
+                </div>
+            </div>
+
+            <div id="notification-bar"></div>
+
+
+            <div id="overlay">
+                <div class="box">
+                    <div id="overlayTitle" style="font-size: 28px; margin-bottom: 8px"></div>
+                    <div id="overlaySub" style="font-size: 16px; margin-bottom: 8px"></div>
+                    <div id="highscoreText" class="small" style="margin-bottom: 12px"></div>
+                    <button id="overlayBtn">START</button>
+                </div>
+            </div>
+
+            <div id="pause-overlay">
+                <div class="box">
+                    一時停止 (PAUSED)
+                </div>
+            </div>
+        </div>
+        <div id="ui">
+            <div class="panel">
+                <h2>操作</h2>
+                <div class="small">W/A/S/D: 移動</div>
+                <div class="small">マウス: 照準</div>
+                <div class="small">
+                    マウス押しっぱなし: 連射 / ローラー転がし / チャージ / ロケラン/ショットガン発射
+                </div>
+                <div class="small">
+                    クリック（ゲームオーバー時）: 次のラウンド or リスタート
+                </div>
+                <div style="height: 8px"></div>
+                <button id="btn-pause">一時停止 / 再開 (P)</button>
+            </div>
+
+            <div class="panel">
+                <h2>武器選択</h2>
+                <div style="margin-bottom: 8px">
+                    <span class="weapon-btn" id="btn-shooter">Shooter</span>
+                    <span class="weapon-btn" id="btn-roller">Roller</span>
+                    <span class="weapon-btn" id="btn-charger">Charger</span>
+                    <span class="weapon-btn" id="btn-spinner">Spinner</span>
+                    <span class="weapon-btn" id="btn-rocket">Rocket</span>
+                    <span class="weapon-btn" id="btn-shotgun">Shotgun</span>
+                    <span class="weapon-btn" id="btn-blade">Blade</span>
+                </div>
+
+                <div style="height: 12px"></div>
+
+                <div class="panel" style="background: #182226; margin-bottom: 0;">
+                    <h2 style="margin-bottom: 6px;">選択武器ステータス</h2>
+                    <h3 id="weapon-current-name">Shooter</h3>
+                    <div id="weapon-current-stats" class="small">
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>武器変更モード</h2>
+                <div class="mode-switch" style="margin-bottom: 8px;">
+                    <span class="mode-btn" id="btn-lock-weapon">Weapon Lock</span>
+                    <span class="mode-btn" id="btn-swap-weapon">Weapon Swap</span>
+                </div>
+                <div class="small">Weapon Lock: <span id="weapon-lock-status">ON</span> (ラウンド中に武器変更不可)</div>
+            </div>
+
+            <div class="panel">
+                <h2>ゲームモード</h2>
+                <div class="mode-switch">
+                    <span class="mode-btn" id="btn-boss-mode">ボス戦あり</span>
+                    <span class="mode-btn" id="btn-round-mode">ラウンドのみ</span>
+                </div>
+                <div class="small">Current Mode: <span id="current-mode">ボス戦あり</span></div>
+                <div class="small">
+                    Boss Mode Highest: <span id="highscore-boss">1</span>
+                </div>
+                <div class="small">
+                    Round Mode Highest: <span id="highscore-round">1</span>
+                </div>
+            </div>
+            <div class="panel">
+                <h2>プレイヤー</h2>
+                <div class="stat">
+                    <div>HP</div>
+                    <div id="player-hp-text">120 / 120</div>
+                </div>
+                <div class="hpbar">
+                    <i id="player-hp-bar" style="width: 100%"></i>
+                </div>
+                <div style="height: 8px"></div>
+                <div class="stat">
+                    <div>Weapon</div>
+                    <div id="weapon-name">Shooter</div>
+                </div>
+                <div style="height: 8px"></div>
+
+                <div id="charge-ui-group" class="charge-ui-group">
+                    <div class="stat">
+                        <div>Charge</div>
+                        <div id="charge-text">0%</div>
+                    </div>
+                    <div class="hpbar">
+                        <i id="charge-bar" style="width: 0%; background: linear-gradient(90deg, #f3c, #f60)"></i>
+                    </div>
+                </div>
+
+                <div id="rocket-cooldown-ui-group" class="charge-ui-group">
+                    <div class="stat" id="rocket-cooldown-stat">
+                        <div>Cooldown</div>
+                        <div id="rocket-cooldown-text">5.0s</div>
+                    </div>
+                    <div class="hpbar" id="rocket-cooldown-bar-container">
+                        <i id="rocket-cooldown-bar"
+                            style="width: 100%; background: linear-gradient(90deg, #ff5555, #cc0000)"></i>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="panel">
+                <h2>ラウンド / 敵</h2>
+                <div class="small">Round: <span id="round-num">1</span></div>
+                <div class="small">Enemies Left: <span id="en-left">1</span></div>
+                <div style="height: 8px"></div>
+                <button id="btn-reset">Reset to Round 1</button>
+            </div>
+
+            <div class="panel">
+                <h2>調整</h2>
+                <label class="small">Shooter spread: <span id="spread-val">10</span>°</label>
+                <input id="spread" type="range" min="0" max="30" value="10" />
+                <label class="small">Shooter fire rate (ms): <span id="fr-val">120</span></label>
+                <input id="firerate" type="range" min="40" max="400" step="10" value="120" />
+                <label class="small">Charger max charge (ms): <span id="ct-val">1500</span></label>
+                <input id="chargemax" type="range" min="500" max="3000" step="100" value="1500" />
+                <label class="small">Spinner max charge (ms): <span id="sct-val">1000</span></label>
+                <input id="spinnerchargemax" type="range" min="500" max="3000" step="100" value="1000" />
+                <label class="small">Blade charge (ms): <span id="bct-val">800</span></label>
+                <input id="bladechargemax" type="range" min="500" max="2000" step="100" value="800" />
+            </div>
+
+            <div style="height: 8px"></div>
+            <div class="panel center small">
+                All-original demo — カスタム機能実装版
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("game");
+        const ctx = canvas.getContext("2d");
+        const overlay = document.getElementById("overlay");
+        const overlayTitle = document.getElementById("overlayTitle");
+        const overlaySub = document.getElementById("overlaySub");
+        const overlayBtn = document.getElementById("overlayBtn");
+        const highscoreText = document.getElementById("highscoreText");
+        const pauseOverlay = document.getElementById("pause-overlay");
+
+        const bossWarningOverlay = document.getElementById("boss-warning-overlay");
+        const bossWarningText = document.getElementById("boss-warning-text");
+
+        // --- 追加: 通知バーの要素取得 ---
+        const notificationBar = document.getElementById("notification-bar");
+        // --------------------------------
+
+        // UI要素の取得 (サイドパネル)
+        const hpText = document.getElementById("player-hp-text");
+        const hpBar = document.getElementById("player-hp-bar");
+        const chargeText = document.getElementById("charge-text");
+        const chargeBar = document.getElementById("charge-bar");
+        const weaponNameEl = document.getElementById("weapon-name");
+        const roundNumEl = document.getElementById("round-num");
+        const enLeftEl = document.getElementById("en-left");
+
+        const highscoreBossUI = document.getElementById("highscore-boss");
+        const highscoreRoundUI = document.getElementById("highscore-round");
+        const currentModeEl = document.getElementById("current-mode");
+        const weaponLockStatusEl = document.getElementById("weapon-lock-status");
+
+        // 武器情報パネルの要素
+        const weaponCurrentNameEl = document.getElementById("weapon-current-name");
+        const weaponCurrentStatsEl = document.getElementById("weapon-current-stats");
+
+        // ゲーム画面上のUI要素
+        const gameInfoContainer = document.getElementById("game-info-container");
+        const inGameRound = document.getElementById("in-game-round");
+        const inGameHP = document.getElementById("in-game-hp");
+        const inGameEnemies = document.getElementById("in-game-enemies");
+        const inGameHPBarFill = document.getElementById("hp-bar-ingame-fill");
+
+        // ゲーム画面上 チャージ/クールダウン
+        const inGameChargeInfo = document.getElementById("charge-info-ingame");
+        const inGameChargeText = document.getElementById("charge-text-ingame");
+        const inGameChargeBarFill = document.getElementById("charge-bar-ingame-fill");
+        const inGameCooldownInfo = document.getElementById("cooldown-info-ingame");
+        const inGameCooldownText = document.getElementById("cooldown-text-ingame");
+        const inGameCooldownBarFill = document.getElementById("cooldown-bar-ingame-fill");
+
+        // ゲーム画面下 武器別ハイスコア (変更)
+        const highscoresIngameContainer = document.getElementById("weapon-highscores-ingame-container");
+        const highscoresIngameEl = document.getElementById("weapon-highscores-ingame");
+        const highscoreCurrentEl = document.getElementById("ingame-highscore-current");
+        const currentModeLabel = document.getElementById("current-mode-label");
+
+        // 各武器のハイスコア要素を取得
+        const ingameHighscores = {};
+        const weapons = ["shooter", "roller", "charger", "spinner", "rocket", "shotgun", "blade"];
+        weapons.forEach(w => {
+            const elB = document.getElementById(`ingame-highscore-${w}-b`);
+            const elR = document.getElementById(`ingame-highscore-${w}-r`);
+            if (elB) ingameHighscores[`${w}-b`] = elB;
+            if (elR) ingameHighscores[`${w}-r`] = elR;
+        });
+
+
+        const btnShooter = document.getElementById("btn-shooter");
+        const btnRoller = document.getElementById("btn-roller");
+        const btnCharger = document.getElementById("btn-charger");
+        const btnSpinner = document.getElementById("btn-spinner");
+        const btnRocket = document.getElementById("btn-rocket");
+        const btnShotgun = document.getElementById("btn-shotgun");
+        const btnBlade = document.getElementById("btn-blade"); // Blade追加
+
+        const allWeaponButtons = [btnShooter, btnRoller, btnCharger, btnSpinner, btnRocket, btnShotgun, btnBlade]; // Blade追加
+
+        const btnReset = document.getElementById("btn-reset");
+        const btnPause = document.getElementById("btn-pause");
+
+        const btnBossMode = document.getElementById("btn-boss-mode");
+        const btnRoundMode = document.getElementById("btn-round-mode");
+
+        const allModeButtons = [btnBossMode, btnRoundMode]; // モードボタンリストを追加
+
+        const btnLockWeapon = document.getElementById("btn-lock-weapon");
+        const btnSwapWeapon = document.getElementById("btn-swap-weapon");
+
+        const allWeaponModeButtons = [btnLockWeapon, btnSwapWeapon]; // 武器モードボタンリストを追加
+
+
+        const chargeUIGroup = document.getElementById("charge-ui-group");
+        const rocketCooldownUIGroup = document.getElementById("rocket-cooldown-ui-group");
+        const rocketCooldownText = document.getElementById("rocket-cooldown-text");
+        const rocketCooldownBar = document.getElementById("rocket-cooldown-bar");
+
+
+        const spreadInput = document.getElementById("spread");
+        const spreadVal = document.getElementById("spread-val");
+        const frInput = document.getElementById("firerate");
+        const frVal = document.getElementById("fr-val");
+
+        const chargeMaxInput = document.getElementById("chargemax");
+        const ctVal = document.getElementById("ct-val");
+
+        const spinnerChargeMaxInput = document.getElementById("spinnerchargemax");
+        const sctVal = document.getElementById("sct-val");
+
+        // Blade用スライダー
+        const bladeChargeMaxInput = document.getElementById("bladechargemax");
+        const bctVal = document.getElementById("bct-val");
+
+        spreadInput.addEventListener(
+            "input",
+            () => (spreadVal.textContent = spreadInput.value),
+        );
+        frInput.addEventListener(
+            "input",
+            () => (frVal.textContent = frInput.value),
+        );
+        chargeMaxInput.addEventListener(
+            "input",
+            () => (ctVal.textContent = chargeMaxInput.value),
+        );
+        spinnerChargeMaxInput.addEventListener(
+            "input",
+            () => (sctVal.textContent = spinnerChargeMaxInput.value),
+        );
+        bladeChargeMaxInput.addEventListener(
+            "input",
+            () => (bctVal.textContent = bladeChargeMaxInput.value),
+        );
+
+        let W = canvas.width,
+            H = canvas.height;
+        let mouse = { x: W / 2, y: H / 2, down: false };
+        let keys = {};
+
+        let perfectCheat = false;
+
+        // キー入力処理
+        window.addEventListener("keydown", (e) => {
+            const key = e.key.toLowerCase();
+
+            if (e.key === "\\" || e.key === "¥") {
+                perfectCheat = !perfectCheat;
+                console.log("Perfect-homing cheat:", perfectCheat ? "ON" : "OFF");
+                return;
+            }
+
+            if (key === "p") {
+                togglePause();
+                return;
+            }
+
+            keys[key] = true;
+
+        });
+        window.addEventListener("keyup", (e) => (keys[e.key.toLowerCase()] = false));
+
+        // マウス入力処理
+        canvas.addEventListener("mousemove", (e) => {
+            const r = canvas.getBoundingClientRect();
+            mouse.x = e.clientX - r.left;
+            mouse.y = e.clientY - r.top;
+        });
+        canvas.addEventListener("mousedown", (e) => {
+            if (!gameStarted || isPaused) return;
+            mouse.down = true;
+            // Bladeもチャージ開始
+            if (player.weapon === "charger" || player.weapon === "spinner" || player.weapon === "blade")
+                player.chargeStart = performance.now();
+        });
+        canvas.addEventListener("mouseup", (e) => {
+            mouse.down = false;
+            if (!gameStarted || isPaused) return;
+            if (player.weapon === "charger") releaseCharger();
+            else if (player.weapon === "spinner") releaseSpinner();
+            else if (player.weapon === "blade") releaseBlade(); // Blade解放
+        });
+        canvas.addEventListener("click", (e) => {
+            if (gameOver && overlay.style.display === "flex") {
+                restartOnce();
+            } else if (player.weapon === "shooter" && !mouse.down && gameStarted && !isPaused) {
+                shooterImmediateShot();
+            }
+        });
+
+        /* Player */
+        let player = {
+            x: 120,
+            y: 120,
+            angle: 0,
+            size: 18,
+            speed: 3.6,
+            hp: 120,
+            maxHp: 120,
+            weapon: "shooter",
+            shooterTimerMs: 120,
+            chargeStart: 0,
+            spinnerShotCount: 0,
+            spinnerLastShot: 0,
+            isAutoAim: false,
+            rocketLastShot: 0,
+            shotgunLastShot: 0,
+            // Blade用ステータス
+            isDashing: false,
+            dashSpeed: 20,
+            dashDuration: 15, // フレーム数
+            dashTimer: 0,
+            dashAngle: 0,
+            dashDamage: 50, // 衝撃波ダメージ
+        };
+        let bullets = [];
+        let enemies = [];
+        let visualEffects = [];
+        let round = 1;
+        let enemyCount = 1;
+        let gameOver = false;
+        let win = false;
+        let gameStarted = false;
+        let isPaused = false;
+
+        // --- Game Mode Management ---
+        let gameMode = "boss";
+        let weaponLockMode = true;
+
+        // 武器とモードごとのハイスコア
+        let weaponHighscores = {
+            shooter: { boss: 1, round: 1 },
+            roller: { boss: 1, round: 1 },
+            charger: { boss: 1, round: 1 },
+            spinner: { boss: 1, round: 1 },
+            rocket: { boss: 1, round: 1 },
+            shotgun: { boss: 1, round: 1 },
+            blade: { boss: 1, round: 1 }, // Blade追加
+        };
+
+        let highscores = weaponHighscores[player.weapon];
+
+
+        // --- Constants ---
+        const SHOOTER_SPEED = 10,
+            SHOOTER_DAMAGE = 14;
+
+        const ROLLER_RADIUS = 80;
+        ROLLER_DAMAGE_TICK = 5,
+            ROLLER_TICK_FRAMES = 1;
+        const CHARGER_MIN_SPEED = 12,
+            CHARGER_MAX_SPEED = 30;
+        const CHARGER_MAX_DMG = 1000;
+        const CHARGER_BOSS_DAMAGE_MULTIPLIER = 0.01;
+        const SPINNER_MAX_BULLETS = 30;
+        const SPINNER_RATE = 30;
+        const SPINNER_SPEED = 10;
+        const ROLLER_KILL_HEAL = 5;
+        const ENEMY_BULLET_SPEED = 6,
+            ENEMY_BULLET_DMG = 10;
+
+        // ROCKET Constants
+        const ROCKET_SPEED = 20;
+        const ROCKET_DAMAGE = 200;
+        const ROCKET_SPLASH_DAMAGE = 150;
+        const ROCKET_SPLASH_RADIUS = 200;
+        const ROCKET_COOLDOWN = 5000;
+
+        // Shotgun Constants
+        const SHOTGUN_BULLETS = 3;
+        const SHOTGUN_SPREAD_BASE = 15;
+        const SHOTGUN_SPEED = 15;
+        const SHOTGUN_MAIN_DAMAGE = 10;
+        const SHOTGUN_COOLDOWN = 300;
+        const SHOTGUN_SUB_COUNT = 3;
+        const SHOTGUN_SUB_DAMAGE = 5;
+        const SHOTGUN_REFLECT_SPREAD = 45;
+        const SHOTGUN_REFLECT_SPD_MULT = 0.8;
+
+        // Blade Constants
+        const BLADE_SLASH_RADIUS = 120; // 衝撃波の範囲
+        const BLADE_DASH_DIST = 40; // 1フレームあたりの移動距離目安 (実際はplayer.speed * dashSpeed)
+
+        // --- Boss Constants ---
+        const BOSS_INTERVAL = 10;
+        const BOSS_SIZE = 50;
+        const BOSS_HP_MULTIPLIER = 120;
+        const BOSS_BASE_SPEED = 0.5;
+        const BOSS_DAMAGE = 30;
+
+        // Boss Attack State
+        const BOSS_ATTACK_STATE = {
+            IDLE: 0,
+            SHOOTER: 1,
+            DASH: 2,
+            SPINNER: 3,
+            AREA: 4,
+            CROSS_DASH: 5 // 追加: 双子用クロスダッシュ
+        };
+
+        const BOSS_STATE_DURATION = 150;
+        const BOSS_COOLDOWN = 50;
+
+        const BOSS_WARNING_DURATION = 120;
+
+        // ボス攻撃の警告テキスト定義
+        const BOSS_WARNINGS = {
+            [BOSS_ATTACK_STATE.IDLE]: "待機中 (IDLE)",
+            [BOSS_ATTACK_STATE.SHOOTER]: "警告: 連射 (SHOOTER)",
+            [BOSS_ATTACK_STATE.DASH]: "警告: 突進 (DASH!)",
+            [BOSS_ATTACK_STATE.SPINNER]: "警告: 拡散連射 (SPINNER)",
+            [BOSS_ATTACK_STATE.AREA]: "警告: 範囲攻撃 (AREA BOMB)",
+            [BOSS_ATTACK_STATE.CROSS_DASH]: "警告: クロス突進 (X-DASH)" // 追加
+        };
+
+        let currentBossRound = 0;
+
+        let bossWarningTimer = 0;
+        let bossNextAttackState = BOSS_ATTACK_STATE.IDLE;
+
+        // --- 通知バー表示用タイマー ---
+        let notificationTimer = null;
+        // -----------------------------
+
+        const rand = (a, b) => Math.random() * (b - a) + a;
+        const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+        const dist = (x1, y1, x2, y2) => Math.hypot(x1 - x2, y1 - y2);
+        const angleBetween = (x1, y1, x2, y2) => Math.atan2(y2 - y1, x2 - x1); // x2-x1に修正
+
+        /* UI init */
+        weaponNameEl.textContent = "Shooter";
+        btnShooter.classList.add("active");
+        roundNumEl.textContent = round;
+
+        // 武器変更はゲーム中、ロックモードで制限 (ROUND CLEAR時もロックされるように endRound/startRound で処理を移譲)
+        btnShooter.onclick = () => { if (!gameStarted || !weaponLockMode) setWeapon("shooter"); else showNotification("ゲーム中は武器変更がロックされています。"); };
+        btnRoller.onclick = () => { if (!gameStarted || !weaponLockMode) setWeapon("roller"); else showNotification("ゲーム中は武器変更がロックされています。"); };
+        btnCharger.onclick = () => { if (!gameStarted || !weaponLockMode) setWeapon("charger"); else showNotification("ゲーム中は武器変更がロックされています。"); };
+        btnSpinner.onclick = () => { if (!gameStarted || !weaponLockMode) setWeapon("spinner"); else showNotification("ゲーム中は武器変更がロックされています。"); };
+        btnRocket.onclick = () => { if (!gameStarted || !weaponLockMode) setWeapon("rocket"); else showNotification("ゲーム中は武器変更がロックされています。"); };
+        btnShotgun.onclick = () => { if (!gameStarted || !weaponLockMode) setWeapon("shotgun"); else showNotification("ゲーム中は武器変更がロックされています。"); };
+        btnBlade.onclick = () => { if (!gameStarted || !weaponLockMode) setWeapon("blade"); else showNotification("ゲーム中は武器変更がロックされています。"); }; // Blade追加
+
+        // モード変更はゲーム開始・リスタート前にのみ可能 (ROUND CLEAR時もロックされるように endRound/startRound で処理を移譲)
+        btnBossMode.onclick = () => {
+            if (!gameStarted || gameOver) {
+                setGameMode("boss");
+            } else {
+                showNotification("今は変更できません");
+            }
+        };
+        btnRoundMode.onclick = () => {
+            if (!gameStarted || gameOver) {
+                setGameMode("round");
+            } else {
+                showNotification("今は変更できません");
+            }
+        };
+
+        // 武器変更モードのボタンのクリック処理 (ROUND CLEAR時もロックされるように endRound/startRound で処理を移譲)
+        btnLockWeapon.onclick = () => {
+            const isModeLocked = gameStarted && !gameOver;
+            if (!isModeLocked) {
+                setWeaponLockMode(true);
+            } else {
+                showNotification("今は変更できません");
+            }
+        };
+        btnSwapWeapon.onclick = () => {
+            const isModeLocked = gameStarted && !gameOver;
+            if (!isModeLocked) {
+                setWeaponLockMode(false);
+            } else {
+                showNotification("今は変更できません");
+            }
+        };
+
+        btnPause.onclick = togglePause;
+
+        btnReset.onclick = () => {
+            round = 1;
+            enemyCount = 1;
+            currentBossRound = 0;
+            startRound();
+        };
+
+        function togglePause() {
+            if (!gameStarted || gameOver) return;
+            isPaused = !isPaused;
+            pauseOverlay.style.display = isPaused ? 'flex' : 'none';
+        }
+
+        // --- 通知表示機能 ---
+        function showNotification(message) {
+            if (notificationTimer) {
+                clearTimeout(notificationTimer);
+            }
+            notificationBar.textContent = message;
+            notificationBar.classList.add('show');
+            notificationTimer = setTimeout(() => {
+                notificationBar.classList.remove('show');
+                notificationTimer = null;
+            }, 2500);
+        }
+        // --------------------
+
+        // --- ハイスコアの永続化関数 ---
+        function loadHighscores() {
+            const stored = localStorage.getItem('splatoon_weapon_highscores_v3');
+            if (stored) {
+                try {
+                    const loaded = JSON.parse(stored);
+                    Object.assign(weaponHighscores, loaded);
+                } catch (e) {
+                    console.error("Failed to load weapon highscores:", e);
+                }
+            }
+        }
+
+        function saveHighscores() {
+            localStorage.setItem('splatoon_weapon_highscores_v3', JSON.stringify(weaponHighscores));
+        }
+        // ---------------------------------
+
+        // --- Boss生成関数の修正 (双子対応・タイプ追加) ---
+        function createBoss(roundNum, x = W / 2, y = 60, color = "#9900cc", hpScale = 1.0, type = 'normal') {
+            return {
+                x: x,
+                y: y,
+                vx: 0,
+                vy: 0,
+                speed: BOSS_BASE_SPEED,
+                size: BOSS_SIZE,
+                hp: (BOSS_SIZE * BOSS_HP_MULTIPLIER * (roundNum / BOSS_INTERVAL)) * hpScale,
+                maxHp: (BOSS_SIZE * BOSS_HP_MULTIPLIER * (roundNum / BOSS_INTERVAL)) * hpScale,
+                shootCooldown: 60,
+                changeTimer: BOSS_COOLDOWN,
+                color: color,
+                isBoss: true,
+                bossType: type, // 'normal', 'red', 'blue'
+                attackIndex: 0, // 行動パターンのインデックス
+                attackState: BOSS_ATTACK_STATE.IDLE,
+                stateTimer: 0,
+                dashTarget: { x: 0, y: 0 },
+                spinnerCount: 0,
+                spinnerRate: 8,
+                areaCount: 0,
+                areaRate: 10,
+                dashSpeed: 15,
+            };
+        }
+        // --------------------------------------------
+
+        /**
+         * 選択された武器のステータスパネルを更新する関数
+         */
+        function updateWeaponInfoPanel(weapon) {
+            let html = '';
+            weaponCurrentNameEl.textContent = weapon.charAt(0).toUpperCase() + weapon.slice(1);
+
+            switch (weapon) {
+                case 'shooter':
+                    html += `<div class="stat"><div>基本ダメージ</div><div>${SHOOTER_DAMAGE}</div></div>`;
+                    html += `<div class="stat"><div>連射間隔 (調整可能)</div><div>${frInput.value}ms</div></div>`;
+                    html += `<div class="stat"><div>特徴</div><div>標準的な連射性能。弾のばらつきを調整可能。</div></div>`;
+                    break;
+                case 'roller':
+                    html += `<div class="stat"><div>近接ダメージ (持続)</div><div>${ROLLER_DAMAGE_TICK} / Tick</div></div>`;
+                    html += `<div class="stat"><div>接触範囲</div><div>約 ${ROLLER_RADIUS}px</div></div>`;
+                    html += `<div class="stat"><div>特徴</div><div>**接触した敵に持続ダメージ**。敵を倒すとHPが${ROLLER_KILL_HEAL}回復。</div></div>`;
+                    break;
+                case 'charger':
+                    html += `<div class="stat"><div>最大ダメージ</div><div>${CHARGER_MAX_DMG}</div></div>`;
+                    html += `<div class="stat"><div>最大チャージ時間 (調整可能)</div><div>${chargeMaxInput.value}ms</div></div>`;
+                    html += `<div class="stat"><div>特徴</div><div>**チャージで威力・速度が上昇**。フルチャージ弾は雑魚敵を貫通。</div></div>`;
+                    break;
+                case 'spinner':
+                    const spinnerDmg = 14;
+                    html += `<div class="stat"><div>弾ダメージ</div><div>${spinnerDmg}</div></div>`;
+                    html += `<div class="stat"><div>最大チャージ時間 (調整可能)</div><div>${spinnerChargeMaxInput.value}ms</div></div>`;
+                    html += `<div class="stat"><div>連射数 (最大)</div><div>${SPINNER_MAX_BULLETS}発</div></div>`;
+                    html += `<div class="stat"><div>特徴</div><div>**チャージ後に弾を一気に連射**。フルチャージで自動追尾。</div></div>`;
+                    break;
+                case 'rocket':
+                    html += `<div class="stat"><div>直撃ダメージ</div><div>${ROCKET_DAMAGE}</div></div>`;
+                    html += `<div class="stat"><div>爆風ダメージ / 範囲</div><div>${ROCKET_SPLASH_DAMAGE} / ${ROCKET_SPLASH_RADIUS}px</div></div>`;
+                    html += `<div class="stat"><div>クールダウン</div><div>${(ROCKET_COOLDOWN / 1000).toFixed(1)}秒</div></div>`;
+                    html += `<div class="stat"><div>特徴</div><div>**着弾時に大爆発**。範囲内の敵にダメージを与える。</div></div>`;
+                    break;
+                case 'shotgun':
+                    html += `<div class="stat"><div>メイン弾ダメージ</div><div>${SHOTGUN_MAIN_DAMAGE} (x${SHOTGUN_BULLETS})</div></div>`;
+                    html += `<div class="stat"><div>反射弾ダメージ</div><div>${SHOTGUN_SUB_DAMAGE} (x${SHOTGUN_SUB_COUNT})</div></div>`;
+                    html += `<div class="stat"><div>クールダウン</div><div>${(SHOTGUN_COOLDOWN / 1000).toFixed(2)}秒</div></div>`;
+                    html += `<div class="stat"><div>特徴</div><div>**拡散弾が敵に当たると反射弾に変化**し、広範囲を攻撃。</div></div>`;
+                    break;
+                case 'blade':
+                    html += `<div class="stat"><div>突進ダメージ</div><div>${player.dashDamage}</div></div>`;
+                    html += `<div class="stat"><div>無敵時間</div><div>突進中のみ</div></div>`;
+                    html += `<div class="stat"><div>特徴</div><div>**チャージして高速突進**。突進中は無敵。前方に衝撃波。</div></div>`;
+                    break;
+            }
+
+            weaponCurrentStatsEl.innerHTML = html;
+        }
+
+        function updateAllHighscoreUI() {
+            const currentHighscores = weaponHighscores[player.weapon];
+            highscoreBossUI.textContent = currentHighscores.boss;
+            highscoreRoundUI.textContent = currentHighscores.round;
+
+            currentModeLabel.textContent = gameMode === "boss" ? "Boss Mode" : "Round Mode";
+            highscoreCurrentEl.textContent = currentHighscores[gameMode];
+
+            weapons.forEach(w => {
+                if (ingameHighscores[`${w}-b`]) ingameHighscores[`${w}-b`].textContent = weaponHighscores[w].boss;
+                if (ingameHighscores[`${w}-r`]) ingameHighscores[`${w}-r`].textContent = weaponHighscores[w].round;
+            });
+        }
+
+        function setGameMode(mode) {
+            if (gameMode === mode) return;
+            gameMode = mode;
+            round = 1;
+            enemyCount = 1;
+            currentBossRound = 0;
+            updateModeUI();
+        }
+
+        function setWeaponLockMode(lock) {
+            if (weaponLockMode === lock) return;
+            weaponLockMode = lock;
+            updateModeUI();
+        }
+
+        function updateModeUI() {
+            // ゲームが実行中（ポーズ中も含む）で、かつゲームオーバーではない状態
+            const isGameActive = gameStarted && !gameOver;
+
+            btnBossMode.classList.toggle("active", gameMode === "boss");
+            btnRoundMode.classList.toggle("active", gameMode === "round");
+
+            btnLockWeapon.classList.toggle("active", weaponLockMode === true);
+            btnSwapWeapon.classList.toggle("active", weaponLockMode === false);
+
+            weaponLockStatusEl.textContent = weaponLockMode ? "ON" : "OFF";
+
+            // 武器変更ボタンのロック: ゲーム中で、かつロックモードがONの場合
+            const weaponLocked = isGameActive && weaponLockMode;
+            allWeaponButtons.forEach(btn => {
+                btn.classList.toggle("locked", weaponLocked);
+            });
+            // モード変更ボタンのロック: ゲーム開始後、またはラウンドクリア画面表示中は変更不可
+            // ゲームオーバー時 or ゲーム開始前のみ変更可能
+            const modeLocked = isGameActive && !gameOver;
+            allModeButtons.forEach(btn => {
+                btn.classList.toggle("locked", modeLocked);
+            });
+
+            // 武器変更モードボタンのロック判定
+            allWeaponModeButtons.forEach(btn => {
+                btn.classList.toggle("locked", modeLocked);
+            });
+
+            currentModeEl.textContent =
+                gameMode === "boss" ? "ボス戦あり" : "ラウンドのみ";
+
+            updateAllHighscoreUI();
+        }
+
+        function setWeapon(w) {
+            // 制御: ゲーム開始中で、かつロックモードがONなら変更不可
+            if (gameStarted && weaponLockMode) return;
+
+            // 制御: ゲームオーバー/クリア画面が表示されている間は変更不可
+            if (gameOver && overlay.style.display === "flex") return;
+
+            player.weapon = w;
+            player.chargeStart = 0;
+            player.spinnerShotCount = 0;
+            player.isAutoAim = false;
+
+            highscores = weaponHighscores[player.weapon];
+
+            // 武器名の設定
+            const weaponDisplayName = w.charAt(0).toUpperCase() + w.slice(1);
+            weaponNameEl.textContent = weaponDisplayName;
+
+            // 武器ステータスパネルの更新
+            updateWeaponInfoPanel(w);
+
+            btnShooter.classList.toggle("active", w === "shooter");
+            btnRoller.classList.toggle("active", w === "roller");
+            btnCharger.classList.toggle("active", w === "charger");
+            btnSpinner.classList.toggle("active", w === "spinner");
+            btnRocket.classList.toggle("active", w === "rocket");
+            btnShotgun.classList.toggle("active", w === "shotgun");
+            btnBlade.classList.toggle("active", w === "blade");
+
+            updateModeUI();
+        }
+
+        function createEnemy() {
+            return {
+                x: rand(60, W - 60),
+                y: rand(60, H - 60),
+                vx: 0,
+                vy: 0,
+                speed: 1.6 + round * 0.08,
+                size: 18,
+                hp: 40 + round * 9,
+                maxHp: 40 + round * 9,
+                shootCooldown: rand(40, 120),
+                changeTimer: rand(20, 140),
+                color: "#ff8c3a",
+                isBoss: false
+            };
+        }
+
+
+        function spawnEnemies(n) {
+            enemies = [];
+            for (let i = 0; i < n; i++) enemies.push(createEnemy());
+            enLeftEl.textContent = enemies.length;
+        }
+
+        function spawnBullet(x, y, angle, speed, range, damage, from, color, size = 5, isRocket = false, splashRadius = 0, splashDmg = 0, canSplit = false, isSplit = false, penetrate = false) {
+            bullets.push({
+                x,
+                y,
+                dx: Math.cos(angle),
+                dy: Math.sin(angle),
+                spd: speed,
+                range,
+                dist: 0,
+                from,
+                damage,
+                color,
+                ttl: Number.POSITIVE_INFINITY,
+                size,
+                isRocket,
+                splashRadius,
+                splashDmg,
+                canSplit,
+                isSplit,
+                penetrate,
+            });
+        }
+
+        /* Shooter */
+        let lastShotTime = 0;
+        function shooterFire() {
+            const now = performance.now();
+            const msRate = Number(frInput.value);
+            if (now - lastShotTime < msRate) return;
+            lastShotTime = now;
+
+            let base = angleBetween(player.x, player.y, mouse.x, mouse.y);
+            const spreadDeg = Number(spreadInput.value);
+            const spreadRad = (rand(-spreadDeg / 2, spreadDeg / 2) * Math.PI) / 180;
+            let angle = base + spreadRad;
+
+            spawnBullet(
+                player.x + Math.cos(angle) * player.size,
+                player.y + Math.sin(angle) * player.size,
+                angle,
+                SHOOTER_SPEED,
+                Infinity,
+                SHOOTER_DAMAGE,
+                "player",
+                "#6cf",
+                5,
+                false, 0, 0,
+                false, false,
+                false
+            );
+        }
+        function shooterImmediateShot() {
+            shooterFire();
+        }
+
+        /* Roller */
+        let rollerTickCounter = 0;
+        function rollerTick() {
+            rollerTickCounter++;
+            if (rollerTickCounter < ROLLER_TICK_FRAMES) return;
+            rollerTickCounter = 0;
+
+            if (player.weapon === "roller" && mouse.down) {
+                enemies.forEach((e) => {
+                    if (dist(player.x, player.y, e.x, e.y) <= ROLLER_RADIUS + e.size) {
+                        e.hp -= ROLLER_DAMAGE_TICK;
+                    }
+                });
+            }
+        }
+
+        /* Charger */
+        function releaseCharger() {
+            if (player.chargeStart === 0) return;
+            const maxTime = Number(chargeMaxInput.value);
+            const elapsed = Math.min(maxTime, performance.now() - player.chargeStart);
+            const ratio = elapsed / maxTime;
+
+            const speed =
+                CHARGER_MIN_SPEED + (CHARGER_MAX_SPEED - CHARGER_MIN_SPEED) * ratio;
+            const dmg = CHARGER_MAX_DMG * ratio; // 修正: チャージ量に応じたダメージ
+
+            const angle = angleBetween(player.x, player.y, mouse.x, mouse.y);
+
+            spawnBullet(
+                player.x + Math.cos(angle) * player.size,
+                player.y + Math.sin(angle) * player.size,
+                angle,
+                speed,
+                Infinity,
+                dmg,
+                "player",
+                "#ff88ff",
+                5,
+                false, 0, 0,
+                false, false,
+                ratio === 1 // フルチャージ時のみ貫通
+            );
+            player.chargeStart = 0;
+        }
+
+        /* Spinner */
+        let spinnerChargeRatio = 0;
+
+        function releaseSpinner() {
+            if (player.chargeStart === 0) return;
+            const maxTime = Number(spinnerChargeMaxInput.value);
+            const elapsed = performance.now() - player.chargeStart;
+            spinnerChargeRatio = Math.min(1, elapsed / maxTime);
+
+            player.chargeStart = 0;
+
+            player.isAutoAim = spinnerChargeRatio === 1;
+
+            const numBullets = Math.ceil(SPINNER_MAX_BULLETS * spinnerChargeRatio);
+
+            if (numBullets > 0) {
+                player.spinnerShotCount = numBullets;
+                player.spinnerLastShot = performance.now();
+            }
+        }
+
+        function spinnerFireTick() {
+            if (player.spinnerShotCount <= 0) return;
+
+            const now = performance.now();
+            if (now - player.spinnerLastShot < SPINNER_RATE) return;
+            player.spinnerLastShot = now;
+
+            let angle;
+            let spreadRad = 0;
+
+            if (player.isAutoAim) {
+                let target = null;
+                let bestDist = Infinity;
+                enemies.forEach((e) => {
+                    const d = dist(player.x, player.y, e.x, e.y);
+                    if (d < bestDist) {
+                        bestDist = d;
+                        target = e;
+                    }
+                });
+
+                if (target) {
+                    angle = angleBetween(player.x, player.y, target.x, target.y);
+                } else {
+                    angle = angleBetween(player.x, player.y, mouse.x, mouse.y);
+                    player.isAutoAim = false;
+                }
+            } else {
+                angle = angleBetween(player.x, player.y, mouse.x, mouse.y);
+                spreadRad = (rand(-1, 1) * Math.PI) / 180;
+            }
+
+            const finalAngle = angle + spreadRad;
+            const SPINNER_PER_BULLET_DMG = 14;
+
+            spawnBullet(
+                player.x + Math.cos(finalAngle) * player.size,
+                player.y + Math.sin(finalAngle) * player.size,
+                finalAngle,
+                SPINNER_SPEED,
+                Infinity,
+                SPINNER_PER_BULLET_DMG,
+                "player",
+                "#ffc300",
+                5,
+                false, 0, 0,
+                false, false,
+                false
+            );
+            player.spinnerShotCount--;
+
+            if (player.spinnerShotCount <= 0) {
+                player.isAutoAim = false;
+            }
+        }
+
+        /* ロケラン */
+        function rocketFire() {
+            const now = performance.now();
+            if (now - player.rocketLastShot < ROCKET_COOLDOWN) return;
+
+            player.rocketLastShot = now;
+
+            const angle = angleBetween(player.x, player.y, mouse.x, mouse.y);
+
+            spawnBullet(
+                player.x + Math.cos(angle) * player.size,
+                player.y + Math.sin(angle) * player.size,
+                angle,
+                ROCKET_SPEED,
+                Infinity,
+                ROCKET_DAMAGE,
+                "player",
+                "#ff5555",
+                8,
+                true,
+                ROCKET_SPLASH_RADIUS,
+                ROCKET_SPLASH_DAMAGE,
+                false, false,
+                false
+            );
+        }
+        /* ロケラン 終了 */
+
+        /* Shotgun */
+        function shotgunFire() {
+            const now = performance.now();
+            if (now - player.shotgunLastShot < SHOTGUN_COOLDOWN) return;
+            player.shotgunLastShot = now;
+
+            const baseAngle = angleBetween(player.x, player.y, mouse.x, mouse.y);
+            const spreadRad = (SHOTGUN_SPREAD_BASE * Math.PI) / 180;
+
+            for (let i = 0; i < SHOTGUN_BULLETS; i++) {
+                let offset;
+                if (i === 0) {
+                    offset = 0;
+                } else if (i === 1) {
+                    offset = -spreadRad;
+                } else {
+                    offset = spreadRad;
+                }
+
+                const angle = baseAngle + offset;
+
+                spawnBullet(
+                    player.x + Math.cos(angle) * player.size,
+                    player.y + Math.sin(angle) * player.size,
+                    angle,
+                    SHOTGUN_SPEED,
+                    Infinity,
+                    SHOTGUN_MAIN_DAMAGE,
+                    "player",
+                    "#ff9900",
+                    5,
+                    false, 0, 0,
+                    true,
+                    false,
+                    false
+                );
+            }
+        }
+
+        /* Blade */
+        function releaseBlade() {
+            if (player.chargeStart === 0) return;
+            const maxTime = Number(bladeChargeMaxInput.value);
+            const elapsed = Math.min(maxTime, performance.now() - player.chargeStart);
+            const ratio = elapsed / maxTime;
+
+            player.chargeStart = 0;
+
+            if (ratio >= 0.5) {
+                player.isDashing = true;
+                player.dashTimer = 0;
+                player.dashAngle = angleBetween(player.x, player.y, mouse.x, mouse.y);
+
+                visualEffects.push({
+                    x: player.x, y: player.y,
+                    radius: 10, maxRadius: 80,
+                    lifetime: 20, color: "#5cc80088"
+                });
+            }
+        }
+
+        function bladeDashUpdate() {
+            if (!player.isDashing) return;
+
+            player.dashTimer++;
+
+            player.x += Math.cos(player.dashAngle) * player.dashSpeed;
+            player.y += Math.sin(player.dashAngle) * player.dashSpeed;
+            player.x = clamp(player.x, 10, W - 10);
+            player.y = clamp(player.y, 10, H - 10);
+
+            if (player.dashTimer % 3 === 0) {
+                visualEffects.push({
+                    x: player.x, y: player.y,
+                    radius: player.size, maxRadius: player.size,
+                    lifetime: 10, color: "#5cc80044"
+                });
+            }
+
+            const damageAreaRadius = 60;
+            const attackX = player.x + Math.cos(player.dashAngle) * 40;
+            const attackY = player.y + Math.sin(player.dashAngle) * 40;
+
+            enemies.forEach(e => {
+                if (dist(attackX, attackY, e.x, e.y) < damageAreaRadius + e.size) {
+                    e.hp -= player.dashDamage * 0.5;
+                }
+            });
+
+            if (player.dashTimer >= player.dashDuration) {
+                player.isDashing = false;
+            }
+        }
+
+
+        /* Enemy bullets */
+        function spawnEnemyBullet(e) {
+            let dmg = e.isBoss ? BOSS_DAMAGE : ENEMY_BULLET_DMG;
+            let size = e.isBoss ? 8 : 5;
+            let color = e.isBoss ? "#ff00ff" : "#f66";
+
+            const angle = angleBetween(e.x, e.y, player.x, player.y);
+            spawnBullet(
+                e.x + Math.cos(angle) * (e.size + 6),
+                e.y + Math.sin(angle) * (e.size + 6),
+                angle + rand(-0.03, 0.03),
+                ENEMY_BULLET_SPEED,
+                2000,
+                dmg,
+                "enemy",
+                color,
+                size,
+                false, 0, 0,
+                false, false,
+                false
+            );
+        }
+
+        // --- Boss Attack Logic ---
+        function bossUpdate(boss) {
+
+            if (bossWarningTimer > 0) {
+                // 警告表示中はボスはIDLE状態を維持
+                boss.attackState = BOSS_ATTACK_STATE.IDLE;
+                boss.vx *= 0.98;
+                boss.vy *= 0.98;
+
+                bossWarningTimer--;
+                if (bossWarningTimer === 0) {
+                    // 警告終了、次の攻撃へ移行
+                    boss.attackState = bossNextAttackState;
+                    boss.changeTimer = BOSS_STATE_DURATION;
+                    boss.stateTimer = 0;
+
+                    bossWarningOverlay.style.display = 'none';
+                }
+                return;
+            }
+
+
+            boss.changeTimer--;
+            boss.stateTimer++;
+
+            const speedMultiplier = 1 + (currentBossRound / BOSS_INTERVAL - 1) * 0.2;
+
+            if (boss.changeTimer <= 0) {
+                const attacks = [
+                    BOSS_ATTACK_STATE.DASH,
+                    BOSS_ATTACK_STATE.SPINNER,
+                    BOSS_ATTACK_STATE.AREA,
+                    BOSS_ATTACK_STATE.SHOOTER
+                ];
+
+                // 次の攻撃をランダムに選択
+                if (boss.bossType !== 'normal') {
+                    // 双子用行動パターン（同期して動く）
+                    const pattern = [
+                        BOSS_ATTACK_STATE.SHOOTER,
+                        BOSS_ATTACK_STATE.CROSS_DASH,
+                        BOSS_ATTACK_STATE.SPINNER,
+                        BOSS_ATTACK_STATE.CROSS_DASH,
+                        BOSS_ATTACK_STATE.AREA,
+                        BOSS_ATTACK_STATE.DASH
+                    ];
+                    bossNextAttackState = pattern[boss.attackIndex % pattern.length];
+                    boss.attackIndex++;
+                } else {
+                    bossNextAttackState = attacks[Math.floor(Math.random() * attacks.length)];
+                }
+
+                bossWarningText.textContent = BOSS_WARNINGS[bossNextAttackState];
+                bossWarningOverlay.style.display = 'flex';
+
+                // 警告タイマーとボスのIDLE状態を設定
+                bossWarningTimer = BOSS_WARNING_DURATION;
+                boss.attackState = BOSS_ATTACK_STATE.IDLE;
+                boss.changeTimer = BOSS_COOLDOWN + BOSS_WARNING_DURATION; // 警告時間分も加算してIDLE時間を延長
+                boss.stateTimer = 0;
+                boss.vx = 0;
+                boss.vy = 0;
+
+                return;
+            }
+
+            switch (boss.attackState) {
+                case BOSS_ATTACK_STATE.SHOOTER:
+                    const ang = angleBetween(boss.x, boss.y, player.x, player.y);
+                    boss.vx = Math.cos(ang) * boss.speed * 0.8 * speedMultiplier;
+                    boss.vy = Math.sin(ang) * boss.speed * 0.8 * speedMultiplier;
+
+                    boss.shootCooldown--;
+                    if (boss.shootCooldown <= 0) {
+                        spawnEnemyBullet(boss);
+                        boss.shootCooldown = rand(20, 80);
+                    }
+                    break;
+
+                case BOSS_ATTACK_STATE.DASH:
+                    if (boss.stateTimer === 1) {
+                        boss.dashTarget.x = player.x + rand(-30, 30);
+                        boss.dashTarget.y = player.y + rand(-30, 30);
+
+                        const dashAngle = angleBetween(boss.x, boss.y, boss.dashTarget.x, boss.dashTarget.y);
+                        boss.vx = Math.cos(dashAngle) * boss.dashSpeed * speedMultiplier;
+                        boss.vy = Math.sin(dashAngle) * boss.dashSpeed * speedMultiplier;
+
+                        visualEffects.push({
+                            x: boss.x, y: boss.y,
+                            radius: 5, maxRadius: 60,
+                            lifetime: 20, color: "#ff00ff"
+                        });
+
+                    } else if (boss.stateTimer > 1) {
+                        if (dist(boss.x, boss.y, boss.dashTarget.x, boss.dashTarget.y) < 20 || boss.stateTimer > 40) {
+                            boss.changeTimer = 1;
+                        }
+                        // ダッシュ中に移動を続ける
+                        boss.x += boss.vx;
+                        boss.y += boss.vy;
+                        // 壁との衝突判定は引き続き行う
+                        if (boss.x < boss.size) { boss.x = boss.size; boss.vx *= -1; boss.changeTimer = 1; }
+                        if (boss.x > W - boss.size) { boss.x = W - W.size; boss.vx *= -1; boss.changeTimer = 1; }
+                        if (boss.y < boss.size) { boss.y = boss.size; boss.vy *= -1; boss.changeTimer = 1; }
+                        if (boss.y > H - boss.size) { boss.y = H - boss.size; boss.vy *= -1; boss.changeTimer = 1; }
+                        return;
+                    }
+                    break;
+
+                // --- 双子ボス専用: クロスダッシュ ---
+                case BOSS_ATTACK_STATE.CROSS_DASH: { // 修正: 波括弧で囲む
+                    const prepareTime = 40;
+                    const dashStartTime = 60;
+
+                    if (boss.stateTimer < prepareTime) {
+                        // 準備位置へ移動
+                        let targetX = (boss.bossType === 'red') ? 50 : W - 50;
+                        let targetY = 50;
+
+                        // スムーズに移動
+                        boss.x += (targetX - boss.x) * 0.1;
+                        boss.y += (targetY - boss.y) * 0.1;
+                    } else if (boss.stateTimer === dashStartTime) {
+                        // 突進開始計算
+                        let targetX = (boss.bossType === 'red') ? W - 50 : 50;
+                        let targetY = H - 50;
+
+                        const dashAngle = angleBetween(boss.x, boss.y, targetX, targetY);
+                        const dashSpd = 25; // 超高速
+
+                        boss.vx = Math.cos(dashAngle) * dashSpd;
+                        boss.vy = Math.sin(dashAngle) * dashSpd;
+
+                        // 演出
+                        visualEffects.push({
+                            x: boss.x, y: boss.y,
+                            radius: 10, maxRadius: 100,
+                            lifetime: 30, color: boss.color
+                        });
+
+                    } else if (boss.stateTimer > dashStartTime) {
+                        // 突進中
+                        boss.x += boss.vx;
+                        boss.y += boss.vy;
+
+                        // 残像
+                        if (boss.stateTimer % 2 === 0) {
+                            visualEffects.push({
+                                x: boss.x, y: boss.y,
+                                radius: boss.size, maxRadius: boss.size,
+                                lifetime: 10, color: boss.color + "44"
+                            });
+                        }
+
+                        if (boss.stateTimer > dashStartTime + 30) {
+                            boss.changeTimer = 1; // 終了
+                            boss.vx *= 0.1;
+                            boss.vy *= 0.1;
+                        }
+                        return;
+                    }
+                    break;
+                } // 修正: 波括弧閉じ
+                // ---------------------------------
+
+                case BOSS_ATTACK_STATE.SPINNER:
+                    if (boss.stateTimer % boss.spinnerRate === 0 && boss.stateTimer < BOSS_STATE_DURATION - 30) {
+                        const spinnerAngle = angleBetween(boss.x, boss.y, player.x, player.y);
+                        const spread = 0.05;
+                        const numShots = 3;
+                        for (let i = 0; i < numShots; i++) {
+                            spawnBullet(
+                                boss.x, boss.y,
+                                spinnerAngle + rand(-spread, spread),
+                                ENEMY_BULLET_SPEED * 1.5,
+                                2000, BOSS_DAMAGE * 0.5,
+                                "enemy", "#ff00ff", 6
+                            );
+                        }
+                    }
+
+                    boss.vx *= 0.95;
+                    boss.vy *= 0.95;
+                    break;
+
+                case BOSS_ATTACK_STATE.AREA:
+                    if (boss.stateTimer % boss.areaRate === 0 && boss.stateTimer < BOSS_STATE_DURATION - 30) {
+                        const numDrops = 5;
+                        for (let i = 0; i < numDrops; i++) {
+                            const dropX = rand(0, W);
+                            const dropY = rand(0, H);
+
+                            spawnBullet(
+                                dropX, 0,
+                                Math.PI / 2,
+                                ENEMY_BULLET_SPEED * 1.2,
+                                H, BOSS_DAMAGE,
+                                "enemy", "#ff00ff", 7
+                            );
+                        }
+                    }
+
+                    boss.vx *= 0.9;
+                    boss.vy *= 0.9;
+                    break;
+
+                case BOSS_ATTACK_STATE.IDLE:
+                default:
+                    boss.vx *= 0.98;
+                    boss.vy *= 0.98;
+                    break;
+            }
+
+            boss.x += boss.vx;
+            boss.y += boss.vy;
+
+            if (boss.x < boss.size) { boss.x = boss.size; boss.vx *= -1; }
+            if (boss.x > W - boss.size) { boss.x = W - boss.size; boss.vx *= -1; }
+            if (boss.y < boss.size) { boss.y = boss.size; boss.vy *= -1; }
+            if (boss.y > H - boss.size) { boss.y = H - boss.size; boss.vy *= -1; }
+        }
+        // --- End Boss Attack Logic ---
+
+        /* Update */
+        function update(dt) {
+            if (gameOver || !gameStarted || isPaused) return;
+
+            // Bladeダッシュ中は通常の移動制御をスキップ
+            if (player.isDashing) {
+                bladeDashUpdate();
+            } else {
+                player.angle = angleBetween(player.x, player.y, mouse.x, mouse.y);
+                let mx = 0,
+                    my = 0;
+                if (keys["w"]) my -= 1;
+                if (keys["s"]) my += 1;
+                if (keys["a"]) mx -= 1;
+                if (keys["d"]) mx += 1;
+                const mlen = Math.hypot(mx, my) || 1;
+                player.x += (mx / mlen) * player.speed;
+                player.y += (my / mlen) * player.speed;
+                player.x = clamp(player.x, 10, W - 10);
+                player.y = clamp(player.y, 10, H - 10);
+            }
+
+            if (mouse.down && !player.isDashing) {
+                if (player.weapon === "shooter") shooterFire();
+                if (player.weapon === "rocket") rocketFire();
+                if (player.weapon === "shotgun") shotgunFire();
+            }
+
+            if (player.weapon === "spinner" && player.spinnerShotCount > 0) {
+                spinnerFireTick();
+            }
+
+            rollerTick();
+
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                const b = bullets[i];
+
+                // Perfect-Homing チートの適用
+                if (b.from === "player" && perfectCheat && enemies.length > 0) {
+                    let target = null;
+                    let best = Infinity;
+                    for (let e of enemies) {
+                        const d = dist(b.x, b.y, e.x, e.y);
+                        if (d < best) {
+                            best = d;
+                            target = e;
+                        }
+                    }
+                    if (target) {
+                        const ax = target.x - b.x;
+                        const ay = target.y - b.y;
+                        const len = Math.hypot(ax, ay) || 1;
+                        b.dx = ax / len;
+                        b.dy = ay / len;
+                    }
+                }
+
+                b.x += b.dx * b.spd;
+                b.y += b.dy * b.spd;
+                b.dist += b.spd;
+                b.ttl--;
+
+                if (b.from === "player") {
+                    let hitEnemy = false;
+                    for (let j = enemies.length - 1; j >= 0; j--) {
+                        const e = enemies[j];
+                        let damageToApply = b.damage;
+
+                        if (dist(b.x, b.y, e.x, e.y) < e.size + b.size) {
+
+                            hitEnemy = true;
+
+                            if (player.weapon === "charger" && e.isBoss) {
+                                damageToApply *= CHARGER_BOSS_DAMAGE_MULTIPLIER;
+                            }
+
+                            e.hp -= damageToApply;
+
+                            if (b.canSplit) {
+                                const baseAngle = rand(0, Math.PI * 2);
+                                const speed = b.spd * SHOTGUN_REFLECT_SPD_MULT;
+
+                                for (let k = 0; k < SHOTGUN_SUB_COUNT; k++) {
+                                    const spreadRad = (rand(-SHOTGUN_REFLECT_SPREAD / 2, SHOTGUN_REFLECT_SPREAD / 2) * Math.PI) / 180;
+                                    const angle = baseAngle + spreadRad;
+
+                                    spawnBullet(
+                                        b.x, b.y,
+                                        angle,
+                                        speed,
+                                        Infinity,
+                                        SHOTGUN_SUB_DAMAGE,
+                                        "player",
+                                        "#ff9900",
+                                        4,
+                                        false, 0, 0,
+                                        false,
+                                        true
+                                    );
+                                }
+                                bullets.splice(i, 1);
+                                break;
+                            }
+                            else if (b.isRocket) {
+                                enemies.forEach(otherE => {
+                                    if (dist(b.x, b.y, otherE.x, otherE.y) <= b.splashRadius + otherE.size) {
+                                        otherE.hp -= b.splashDmg;
+                                    }
+                                });
+
+                                visualEffects.push({
+                                    x: b.x, y: b.y,
+                                    radius: b.splashRadius * 0.5,
+                                    maxRadius: b.splashRadius * 1.5,
+                                    lifetime: 25,
+                                    color: "#ff555544"
+                                });
+                                bullets.splice(i, 1);
+                                break;
+                            }
+                            else if (b.penetrate && !e.isBoss) {
+                                continue;
+                            }
+                            else if (player.weapon !== "charger" || b.isSplit) {
+                                bullets.splice(i, 1);
+                                break;
+                            }
+                        }
+                    }
+                    if (hitEnemy && !b.penetrate && !b.isRocket && !b.canSplit) {
+                        bullets.splice(i, 1);
+                        continue;
+                    }
+                } else if (b.from === "enemy") {
+                    // Bladeダッシュ中は無敵
+                    if (!player.isDashing && dist(b.x, b.y, player.x, player.y) < player.size + 6) {
+                        player.hp -= b.damage;
+                        bullets.splice(i, 1);
+                        continue;
+                    }
+                }
+
+                if (b.from === "player" && b.isSplit) {
+                    let reflected = false;
+                    if (b.x < 10 || b.x > W - 10) {
+                        b.dx *= -1;
+                        reflected = true;
+                    }
+                    if (b.y < 10 || b.y > H - 10) {
+                        b.dy *= -1;
+                        reflected = true;
+                    }
+                    if (reflected) {
+                        b.x = clamp(b.x, 10, W - 10);
+                        b.y = clamp(b.y, 10, H - 10);
+                    }
+                }
+
+                if (
+                    (Number.isFinite(b.range) && b.dist > b.range) ||
+                    b.ttl <= 0 ||
+                    b.x < -500 ||
+                    b.x > W + 500 ||
+                    b.y < -500 ||
+                    b.y > H + 500
+                ) {
+                    bullets.splice(i, 1);
+                }
+            }
+
+            // --- 修正: 敵の更新処理 ---
+            enemies.forEach((e) => {
+                if (e.isBoss) {
+                    bossUpdate(e);
+
+                    // ★★★ 追加: ボスとの接触ダメージ判定 ★★★
+                    if (!player.isDashing && dist(player.x, player.y, e.x, e.y) < player.size + e.size) {
+                        // ボスがダッシュ攻撃中なら大ダメージ、それ以外は小ダメージ
+                        let contactDamage = 0.8; // 通常接触
+                        if (e.attackState === BOSS_ATTACK_STATE.DASH || e.attackState === BOSS_ATTACK_STATE.CROSS_DASH) {
+                            contactDamage = 3.0; // 突進中は痛くする (フレーム毎ダメージ)
+                        }
+                        player.hp -= contactDamage;
+                    }
+                    // ★★★★★★★★★★★★★★★★★★★★★★★★★
+
+                    return;
+                }
+
+                // --- 雑魚敵の移動・攻撃ロジック ---
+                e.changeTimer--;
+                if (e.changeTimer <= 0) {
+                    e.changeTimer = rand(30, 140);
+                    if (Math.random() < 0.8) {
+                        // プレイヤーに向かって移動
+                        const ang = angleBetween(e.x, e.y, player.x, player.y);
+                        e.vx = Math.cos(ang) * e.speed * (1 + Math.random() * 0.6);
+                        e.vy = Math.sin(ang) * e.speed * (1 + Math.random() * 0.6);
+                    } else {
+                        // ランダムな方向へ移動
+                        const a = rand(0, Math.PI * 2);
+                        e.vx = Math.cos(a) * e.speed;
+                        e.vy = Math.sin(a) * e.speed;
+                    }
+                }
+                e.x += e.vx;
+                e.y += e.vy;
+                // 壁との衝突判定
+                if (e.x < 20) {
+                    e.x = 20;
+                    e.vx *= -1;
+                }
+                if (e.x > W - 20) {
+                    e.x = W - 20;
+                    e.vx *= -1;
+                }
+                if (e.y < 20) {
+                    e.y = 20;
+                    e.vy *= -1;
+                }
+                if (e.y > H - 20) {
+                    e.y = H - 20;
+                    e.vy *= -1;
+                }
+
+                e.shootCooldown--;
+                if (e.shootCooldown <= 0) {
+                    spawnEnemyBullet(e);
+                    e.shootCooldown = rand(40, 120);
+                }
+            });
+            // ------------------------------
+
+            let bossDefeated = false;
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                if (enemies[i].hp <= 0) {
+                    if (enemies[i].isBoss) {
+                        bossDefeated = true;
+                        bossWarningTimer = 0; // 念の為警告も停止
+                        bossWarningOverlay.style.display = 'none';
+                    } else if (player.weapon === "roller") {
+                        player.hp = clamp(player.hp + ROLLER_KILL_HEAL, 0, player.maxHp);
+                    }
+                    enemies.splice(i, 1);
+                }
+            }
+
+            if (player.hp <= 0) {
+                player.hp = 0;
+                endRound(false);
+            } else if (enemies.length === 0) {
+                if (bossDefeated) {
+                    round = currentBossRound + 1;
+                    enemyCount = round;
+                    endRound(true);
+                } else {
+                    round++;
+                    enemyCount++;
+                    endRound(true);
+                }
+            }
+
+            // --- UI updates (common) ---
+            const hpRatio = player.hp / player.maxHp;
+            const isCharger = player.weapon === "charger";
+            const isSpinner = player.weapon === "spinner";
+            const isRocket = player.weapon === "rocket";
+            const isShotgun = player.weapon === "shotgun";
+            const isBlade = player.weapon === "blade"; // Blade追加
+            const isCharging = isCharger || isSpinner || isBlade; // Blade追加
+
+            // --- UI updates (Side Panel) ---
+            hpText.textContent =
+                Math.max(0, Math.round(player.hp)) + " / " + player.maxHp;
+            hpBar.style.width = (hpRatio) * 100 + "%";
+            roundNumEl.textContent = round;
+            enLeftEl.textContent = enemies.length;
+
+            // --- UI updates (In-Game Info: 画面上部) ---
+            inGameRound.querySelector("span").textContent = round;
+            inGameHP.querySelector("span").textContent = `${Math.max(0, Math.round(player.hp))} / ${player.maxHp}`;
+            inGameEnemies.querySelector("span").textContent = enemies.length;
+            inGameHPBarFill.style.width = (hpRatio) * 100 + "%";
+
+            // --- UIパネル内のチャージ/クールダウンバーの表示切替 ---
+            chargeUIGroup.style.display = isCharging ? 'block' : 'none';
+            rocketCooldownUIGroup.style.display = isRocket ? 'block' : 'none';
+
+            // --- チャージ武器の処理 (画面上部) ---
+            if (isCharging) {
+                inGameChargeInfo.style.display = 'flex';
+                inGameCooldownInfo.style.display = 'none';
+
+                if (player.chargeStart) {
+                    let maxTime;
+                    if (isCharger) maxTime = Number(chargeMaxInput.value);
+                    else if (isSpinner) maxTime = Number(spinnerChargeMaxInput.value);
+                    else maxTime = Number(bladeChargeMaxInput.value); // Blade用
+
+                    const elapsed = Math.min(
+                        maxTime,
+                        performance.now() - player.chargeStart,
+                    );
+                    const chargeRatio = elapsed / maxTime;
+
+                    const ratioPercent = Math.round(chargeRatio * 100);
+
+                    chargeText.textContent = ratioPercent + "%";
+                    chargeBar.style.width = ratioPercent + "%";
+
+                    inGameChargeText.textContent = ratioPercent + "%";
+                    inGameChargeBarFill.style.width = ratioPercent + "%";
+                } else {
+                    chargeText.textContent = "0%";
+                    chargeBar.style.width = "0%";
+                    inGameChargeText.textContent = "0%";
+                    inGameChargeBarFill.style.width = "0%";
+                }
+            }
+            // --- クールダウン武器の処理 (画面上部) ---
+            else if (isRocket || isShotgun) {
+                inGameChargeInfo.style.display = 'none';
+                inGameCooldownInfo.style.display = 'flex';
+
+                const cooldownTime = isRocket ? ROCKET_COOLDOWN : SHOTGUN_COOLDOWN;
+                const lastShot = isRocket ? player.rocketLastShot : player.shotgunLastShot;
+                const now = performance.now();
+
+                const elapsed = now - lastShot;
+                const remaining = Math.max(0, cooldownTime - elapsed);
+
+                const cooldownRatio = remaining / cooldownTime;
+
+                if (isRocket) {
+                    rocketCooldownUIGroup.style.display = 'block'; // ロケランの場合、サイドパネルのCTバーも表示
+                    rocketCooldownText.textContent = remaining > 0 ? (remaining / 1000).toFixed(1) + "s" : "READY";
+                    rocketCooldownBar.style.width = remaining > 0 ? (1 - cooldownRatio) * 100 + "%" : "100%";
+                } else {
+                    rocketCooldownUIGroup.style.display = 'none'; // ロケラン以外はサイドパネルのCTバーを非表示
+                }
+
+                let cooldownText = "";
+                if (cooldownRatio <= 0) {
+                    cooldownText = "READY";
+                    inGameCooldownBarFill.style.width = "100%";
+                    inGameCooldownText.style.color = "#aaffaa";
+                } else {
+                    cooldownText = (remaining / 1000).toFixed(1) + "s";
+                    inGameCooldownBarFill.style.width = (1 - cooldownRatio) * 100 + "%";
+                    inGameCooldownText.style.color = "#ff5555";
+                }
+                inGameCooldownText.textContent = cooldownText;
+
+            }
+            // --- その他の武器の処理 (画面上部) ---
+            else {
+                inGameChargeInfo.style.display = 'none';
+                inGameCooldownInfo.style.display = 'none';
+            }
+        }
+
+        /* Draw */
+        function draw() {
+            ctx.fillStyle = "#0b1320";
+            ctx.fillRect(0, 0, W, H);
+
+            ctx.save();
+            ctx.translate(player.x, player.y);
+            ctx.rotate(player.angle);
+            ctx.fillStyle = player.isDashing ? "#aaff00" : "#0cf"; // Bladeダッシュ中は色変更
+            ctx.beginPath();
+            ctx.arc(0, 0, player.size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+
+            for (let i = visualEffects.length - 1; i >= 0; i--) {
+                const fx = visualEffects[i];
+
+                const progress = 1 - fx.lifetime / 25;
+                const currentRadius = fx.radius + (fx.maxRadius - fx.radius) * progress;
+                const alpha = fx.color.length === 9 ? parseInt(fx.color.substring(7, 9), 16) / 255 : 1; // 透過度を取得
+                const newAlpha = alpha * (fx.lifetime / 25);
+
+                ctx.strokeStyle = fx.color.substring(0, 7) + Math.floor(newAlpha * 255).toString(16).padStart(2, '0');
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.arc(fx.x, fx.y, currentRadius, 0, Math.PI * 2);
+                ctx.stroke();
+
+                fx.lifetime--;
+                if (fx.lifetime <= 0) {
+                    visualEffects.splice(i, 1);
+                }
+            }
+
+            bullets.forEach((b) => {
+                ctx.fillStyle = b.color;
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, b.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            enemies.forEach((e) => {
+                ctx.fillStyle = e.color;
+                ctx.beginPath();
+                ctx.arc(e.x, e.y, e.size, 0, Math.PI * 2);
+                ctx.fill();
+
+                const barWidth = e.size * 2;
+                const barHeight = 4;
+                const barY = e.y - e.size - 6;
+
+                ctx.fillStyle = "#222";
+                ctx.fillRect(e.x - e.size, barY, barWidth, barHeight);
+
+                ctx.fillStyle = e.isBoss ? "#ff33ff" : "#f33";
+                ctx.fillRect(
+                    e.x - e.size,
+                    barY,
+                    barWidth * (e.hp / e.maxHp),
+                    barHeight,
+                );
+            });
+
+            if (player.weapon === "roller") {
+                ctx.strokeStyle = "rgba(25,195,125,0.14)";
+                ctx.beginPath();
+                ctx.arc(player.x, player.y, ROLLER_RADIUS, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+        }
+
+        /* Game Loop */
+        let lastTime = performance.now();
+        function loop(now) {
+            const dt = now - lastTime;
+            lastTime = now;
+            update(dt);
+            draw();
+            requestAnimationFrame(loop);
+        }
+        requestAnimationFrame(loop);
+
+        /* Round / GameOver */
+        function endRound(playerWon) {
+            gameOver = true;
+            win = playerWon;
+
+            // ゲームオーバー時もUIは非表示にしない
+
+            bossWarningTimer = 0; // 念の為警告も停止
+            bossWarningOverlay.style.display = 'none';
+
+            let displayHighScore = highscores[gameMode];
+
+            if (playerWon) {
+                overlayTitle.textContent = "ROUND CLEAR!";
+                overlaySub.textContent = "Click START to next round";
+
+                let scoreRound = round;
+                if (enemies.length === 0 && currentBossRound > 0) {
+                    scoreRound = round - 1;
+                    currentBossRound = 0;
+                }
+
+                if (scoreRound > highscores[gameMode]) {
+                    highscores[gameMode] = scoreRound;
+                    displayHighScore = scoreRound;
+                    saveHighscores();
+                }
+
+            } else {
+                overlayTitle.textContent = "GAME OVER";
+                overlaySub.textContent = "Click START to restart";
+
+                if (round > highscores[gameMode]) {
+                    highscores[gameMode] = round;
+                    displayHighScore = round;
+                    saveHighscores();
+                }
+                round = 1;
+                enemyCount = 1;
+                currentBossRound = 0;
+            }
+
+            overlayBtn.textContent = "START";
+            overlay.style.display = "flex";
+
+            highscoreText.textContent = `Highest Round (${gameMode === "boss" ? "Boss" : "Round"}): ${displayHighScore} (Weapon: ${player.weapon})`;
+
+            // --- 修正: ゲームオーバー時にUIロックを更新 ---
+            // 武器とモードのボタンを強制的にロックする
+            allWeaponButtons.forEach(btn => btn.classList.add("locked"));
+            allModeButtons.forEach(btn => btn.classList.add("locked"));
+            allWeaponModeButtons.forEach(btn => btn.classList.add("locked"));
+
+            updateModeUI();
+            // ----------------------------------------
+        }
+
+        function startRound() {
+            gameOver = false;
+            isPaused = false;
+            pauseOverlay.style.display = 'none';
+
+            bossWarningTimer = 0;
+            bossWarningOverlay.style.display = 'none';
+
+            if (notificationTimer) {
+                clearTimeout(notificationTimer);
+                notificationBar.classList.remove('show');
+            }
+
+            player.hp = player.maxHp;
+            player.x = W / 2;
+            player.y = H / 2;
+            bullets = [];
+            visualEffects = [];
+            player.spinnerShotCount = 0;
+            player.isAutoAim = false;
+            player.rocketLastShot = performance.now() - ROCKET_COOLDOWN;
+            player.shotgunLastShot = performance.now() - SHOTGUN_COOLDOWN;
+            player.isDashing = false; // Bladeダッシュ状態リセット
+
+            // --- 修正: 強制ロックを解除 ---
+            allWeaponButtons.forEach(btn => btn.classList.remove("locked"));
+            allModeButtons.forEach(btn => btn.classList.remove("locked"));
+            allWeaponModeButtons.forEach(btn => btn.classList.remove("locked"));
+            // ------------------------------
+
+            if (gameMode === "boss") {
+                if (round % 20 === 0) {
+                    currentBossRound = round;
+                    // 双子ボス生成
+                    enemies = [
+                        createBoss(round, W * 0.3, 60, "#ff4444", 0.7, 'red'), // 赤ボス
+                        createBoss(round, W * 0.7, 60, "#4444ff", 0.7, 'blue')  // 青ボス
+                    ];
+                    enemyCount = 2;
+                    showNotification(`WARNING: TWIN BOSSES (Round ${round})`);
+                } else if (round % 10 === 0) {
+                    currentBossRound = round;
+                    enemies = [createBoss(round, W / 2, 60, "#9900cc", 1.0)];
+                    enemyCount = 1;
+                    showNotification(`WARNING: BOSS (Round ${round})`);
+                } else {
+                    currentBossRound = 0;
+                    spawnEnemies(enemyCount);
+                }
+            } else {
+                currentBossRound = 0;
+                spawnEnemies(enemyCount);
+            }
+
+            overlay.style.display = "none";
+            gameInfoContainer.style.display = 'block';
+            highscoresIngameContainer.style.display = 'flex';
+
+            updateModeUI(); // ゲーム開始時にUIを更新してロックを適用
+        }
+
+        function restartOnce() {
+            startRound();
+        }
+
+        // --- 初期化処理 ---
+        loadHighscores();
+        setWeapon(player.weapon);
+        setWeaponLockMode(true);
+        updateModeUI();
+
+        /* START overlay */
+        overlayTitle.textContent = "Ready to Play?";
+        overlaySub.textContent = "Select your weapon and mode.";
+
+        overlayBtn.addEventListener("click", () => {
+            if (!gameStarted) {
+                gameStarted = true;
+                startRound();
+            } else {
+                restartOnce();
+            }
+        });
+
+    </script>
+</body>
+
+</html>

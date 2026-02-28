@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Text Studio - 改善版</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --success: #10b981;
+            --error: #ef4444;
+            --warning: #f59e0b;
+            --bg-grad: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-grad);
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+        }
+
+        .container {
+            background: white;
+            width: 100%;
+            max-width: 900px;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+            overflow: hidden;
+            margin-top: 20px;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 24px;
+            color: white;
+        }
+
+        .header h1 {
+            margin: 0 0 8px 0;
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+
+        .header p {
+            margin: 0;
+            opacity: 0.9;
+            font-size: 0.9rem;
+        }
+
+        .api-section {
+            background: #f8fafc;
+            padding: 20px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .api-select-group {
+            margin-bottom: 16px;
+        }
+
+        .api-select-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: #475569;
+        }
+
+        .api-provider {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            background: white;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+
+        .api-provider:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .api-input-group {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+        }
+
+        .api-input-wrapper {
+            flex: 1;
+        }
+
+        .api-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            transition: border-color 0.2s;
+        }
+
+        .api-input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .btn-test {
+            padding: 12px 20px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            white-space: nowrap;
+        }
+
+        .btn-test:hover {
+            background: var(--primary-dark);
+        }
+
+        .api-status {
+            margin-top: 12px;
+            padding: 10px 12px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            display: none;
+        }
+
+        .api-status.success {
+            background: #d1fae5;
+            color: #065f46;
+            display: block;
+        }
+
+        .api-status.error {
+            background: #fee2e2;
+            color: #991b1b;
+            display: block;
+        }
+
+        .api-help {
+            margin-top: 12px;
+            padding: 12px;
+            background: #dbeafe;
+            border-left: 4px solid #3b82f6;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            color: #1e40af;
+        }
+
+        .api-help a {
+            color: #1e40af;
+            text-decoration: underline;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            background: #f1f5f9;
+            padding: 8px;
+            gap: 4px;
+        }
+
+        .tab {
+            flex: 1;
+            border: none;
+            background: none;
+            padding: 14px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #64748b;
+            border-radius: 8px;
+            transition: all 0.2s;
+            font-size: 0.95rem;
+        }
+
+        .tab:hover {
+            background: #e2e8f0;
+        }
+
+        .tab.active {
+            background: white;
+            color: var(--primary);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        /* Content */
+        .content-area {
+            padding: 28px;
+        }
+
+        .panel {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .panel.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        textarea,
+        input[type="text"],
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 0.95rem;
+            resize: vertical;
+            transition: border-color 0.2s;
+        }
+
+        textarea:focus,
+        input[type="text"]:focus,
+        select:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        textarea {
+            min-height: 160px;
+            line-height: 1.6;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: #334155;
+        }
+
+        .label-optional {
+            font-weight: 400;
+            color: #94a3b8;
+            font-size: 0.85rem;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 14px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.2s;
+            font-size: 1rem;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+        }
+
+        .btn-primary:disabled {
+            background: #cbd5e1;
+            cursor: not-allowed;
+        }
+
+        /* Result Area */
+        .result-box {
+            margin-top: 28px;
+            background: #f8fafc;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 24px;
+            min-height: 120px;
+            white-space: pre-wrap;
+            position: relative;
+            display: none;
+            line-height: 1.8;
+            font-size: 0.95rem;
+        }
+
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .result-title {
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .copy-btn {
+            background: white;
+            border: 2px solid #cbd5e1;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 600;
+            color: #475569;
+        }
+
+        .copy-btn:hover {
+            background: #f1f5f9;
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .copy-btn.copied {
+            background: var(--success);
+            color: white;
+            border-color: var(--success);
+        }
+
+        #resultContent {
+            color: #334155;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .loading {
+            text-align: center;
+            color: var(--primary);
+            font-weight: 600;
+            display: none;
+            margin-top: 16px;
+            padding: 20px;
+            background: #f0f9ff;
+            border-radius: 8px;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #dbeafe;
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 8px;
+        }
+
+        .error-message {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 16px;
+            border-radius: 8px;
+            margin-top: 16px;
+            display: none;
+            border-left: 4px solid var(--error);
+        }
+
+        .error-message strong {
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .info-box {
+            background: #f0f9ff;
+            border: 1px solid #bae6fd;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            color: #0c4a6e;
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .api-input-group {
+                flex-direction: column;
+            }
+
+            .btn-test {
+                width: 100%;
+            }
+
+            .tabs {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1> AI Text Studio</h1>
+            <p>記事生成・要約・翻訳をAIで簡単に</p>
+        </div>
+        <div class="api-section">
+            <div class="api-select-group">
+                <label>AIプロバイダーを選択</label>
+                <select id="apiProvider" class="api-provider">
+                    <option value="openai">OpenAI (GPT-3.5 / GPT-4)</option>
+                    <option value="gemini">Google Gemini</option>
+                    <option value="anthropic">Anthropic Claude</option>
+                </select>
+            </div>
+            <div class="api-input-group">
+                <div class="api-input-wrapper">
+                    <label id="apiKeyLabel">OpenAI APIキー</label>
+                    <input type="password" id="apiKey" class="api-input" placeholder="sk-... で始まるAPIキーを入力">
+                </div>
+                <button class="btn-test" id="testApiBtn">接続テスト</button>
+            </div>
+            <div class="api-status" id="apiStatus"></div>
+            <div class="api-help">
+                <strong> APIキーの取得方法:</strong>
+                <div id="apiHelpContent">
+                    <a href="https://platform.openai.com/api-keys" target="_blank">OpenAI Platform</a>
+                    でアカウント登録後、APIキーを作成してください。
+                </div>
+            </div>
+        </div>
+        <div class="tabs">
+            <button class="tab active" data-tab="generate"> 記事生成</button>
+            <button class="tab" data-tab="summarize"> 要約</button>
+            <button class="tab" data-tab="translate"> 翻訳</button>
+        </div>
+        <div class="content-area">
+            <!-- Generator Panel -->
+            <div id="generate" class="panel active">
+                <div class="info-box">
+                    トピックとキーワードを入力すると、AIが構造化された記事を自動生成します
+                </div>
+                <div class="form-group">
+                    <label>記事のトピック・テーマ</label>
+                    <input type="text" id="genTopic" placeholder="例: リモートワークの生産性を上げる5つの方法">
+                </div>
+                <div class="form-group">
+                    <label>含めたいキーワード <span class="label-optional">(任意)</span></label>
+                    <input type="text" id="genKeywords" placeholder="例: コミュニケーション, ツール, ワークライフバランス">
+                </div>
+                <button class="btn-primary" data-mode="generate"> 記事を生成する</button>
+            </div>
+            <!-- Summarizer Panel -->
+            <div id="summarize" class="panel">
+                <div class="info-box">
+                    長い文章を指定した形式で簡潔に要約します
+                </div>
+                <div class="form-group">
+                    <label>要約したいテキスト</label>
+                    <textarea id="sumText"
+                        placeholder="ここに要約したい文章を貼り付けてください...&#10;&#10;ニュース記事、レポート、論文など、どんな文章でも要約できます。"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>要約の長さ</label>
+                    <select id="sumLength">
+                        <option value="short">簡潔に (2-3行)</option>
+                        <option value="medium" selected>標準 (5-7行)</option>
+                        <option value="detail">詳細に (箇条書き)</option>
+                    </select>
+                </div>
+                <button class="btn-primary" data-mode="summarize"> 要約を生成する</button>
+            </div>
+            <!-- Translator Panel -->
+            <div id="translate" class="panel">
+                <div class="info-box">
+                    自然で流暢な翻訳をAIが生成します
+                </div>
+                <div class="form-group">
+                    <label>翻訳したいテキスト</label>
+                    <textarea id="transText" placeholder="翻訳したい文章を入力してください..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>翻訳先の言語</label>
+                    <select id="transLang">
+                        <option value="英語">英語 (English)</option>
+                        <option value="日本語">日本語 (Japanese)</option>
+                        <option value="中国語（簡体字）">中国語簡体字 (Simplified Chinese)</option>
+                        <option value="中国語（繁体字）">中国語繁体字 (Traditional Chinese)</option>
+                        <option value="韓国語">韓国語 (Korean)</option>
+                        <option value="スペイン語">スペイン語 (Spanish)</option>
+                        <option value="フランス語">フランス語 (French)</option>
+                        <option value="ドイツ語">ドイツ語 (German)</option>
+                        <option value="イタリア語">イタリア語 (Italian)</option>
+                        <option value="ポルトガル語">ポルトガル語 (Portuguese)</option>
+                    </select>
+                </div>
+                <button class="btn-primary" data-mode="translate"> 翻訳する</button>
+            </div>
+            <div class="loading" id="loading">
+                <span class="loading-spinner"></span>
+                AIが処理中です...
+            </div>
+            <div class="error-message" id="errorMessage"></div>
+            <div class="result-box" id="result">
+                <div class="result-header">
+                    <div class="result-title"> 生成結果</div>
+                    <button class="copy-btn" id="copyBtn"> コピー</button>
+                </div>
+                <div id="resultContent"></div>
+            </div>
+        </div>
+    </div>
+    <script>
+        // グローバル設定
+        const CONFIG = {
+            openai: {
+                endpoint: 'https://api.openai.com/v1/chat/completions',
+                model: 'gpt-3.5-turbo',
+                keyPrefix: 'sk-',
+                helpUrl: 'https://platform.openai.com/api-keys',
+                helpText: '<a href="https://platform.openai.com/api-keys" target="_blank">OpenAI Platform</a> でアカウント登録後、APIキーを作成してください。'
+            },
+            gemini: {
+                endpoint: 'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent',
+                keyPrefix: 'AIza',
+                helpUrl: 'https://aistudio.google.com/app/apikey',
+                helpText: '<a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a> でAPIキーを取得してください。無料枠があります。'
+            },
+            anthropic: {
+                endpoint: 'https://api.anthropic.com/v1/messages',
+                model: 'claude-3-haiku-20240307',
+                keyPrefix: 'sk-ant-',
+                helpUrl: 'https://console.anthropic.com/',
+                helpText: '<a href="https://console.anthropic.com/" target="_blank">Anthropic Console</a> でAPIキーを取得してください。'
+            }
+        };
+        let currentProvider = 'openai';
+        // 初期化
+        document.addEventListener('DOMContentLoaded', function () {
+            initTabs();
+            initButtons();
+            initCopyButton();
+            initApiProvider();
+            initTestButton();
+        });
+        // APIプロバイダー選択
+        function initApiProvider() {
+            const providerSelect = document.getElementById('apiProvider');
+            providerSelect.addEventListener('change', function () {
+                currentProvider = this.value;
+                updateApiUI();
+            });
+            updateApiUI();
+        }
+        function updateApiUI() {
+            const config = CONFIG[currentProvider];
+            const keyLabel = document.getElementById('apiKeyLabel');
+            const keyInput = document.getElementById('apiKey');
+            const helpContent = document.getElementById('apiHelpContent');
+            // ラベルとプレースホルダーを更新
+            const providerNames = {
+                'openai': 'OpenAI',
+                'gemini': 'Google Gemini',
+                'anthropic': 'Anthropic Claude'
+            };
+            keyLabel.textContent = `${providerNames[currentProvider]} APIキー`;
+            keyInput.placeholder = `${config.keyPrefix}... で始まるAPIキーを入力`;
+            keyInput.value = '';
+            helpContent.innerHTML = config.helpText;
+            // ステータスをリセット
+            hideApiStatus();
+        }
+        // 接続テストボタン
+        function initTestButton() {
+            const testBtn = document.getElementById('testApiBtn');
+            testBtn.addEventListener('click', testApiConnection);
+        }
+        async function testApiConnection() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            if (!apiKey) {
+                showApiStatus('APIキーを入力してください', 'error');
+                return;
+            }
+            const config = CONFIG[currentProvider];
+            if (!apiKey.startsWith(config.keyPrefix)) {
+                showApiStatus(`${currentProvider.toUpperCase()} APIキーは ${config.keyPrefix} で始まる必要があります`, 'error');
+                return;
+            }
+            const testBtn = document.getElementById('testApiBtn');
+            testBtn.disabled = true;
+            testBtn.textContent = 'テスト中...';
+            try {
+                const success = await testAPI(currentProvider, apiKey);
+                if (success) {
+                    showApiStatus('✓ 接続成功！APIキーは有効です', 'success');
+                } else {
+                    showApiStatus('✗ 接続失敗：APIキーが無効または期限切れです', 'error');
+                }
+            } catch (error) {
+                showApiStatus(`✗ エラー: ${error.message}`, 'error');
+            } finally {
+                testBtn.disabled = false;
+                testBtn.textContent = '接続テスト';
+            }
+        }
+        async function testAPI(provider, apiKey) {
+            if (provider === 'openai') {
+                const response = await fetch(CONFIG.openai.endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: CONFIG.openai.model,
+                        messages: [{ role: 'user', content: 'Hi' }],
+                        max_tokens: 5
+                    })
+                });
+                return response.ok;
+            } else if (provider === 'gemini') {
+                const url = `${CONFIG.gemini.endpoint}?key=${apiKey}`;
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: 'Hi' }] }]
+                    })
+                });
+                return response.ok;
+            } else if (provider === 'anthropic') {
+                const response = await fetch(CONFIG.anthropic.endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-api-key': apiKey,
+                        'anthropic-version': '2023-06-01'
+                    },
+                    body: JSON.stringify({
+                        model: CONFIG.anthropic.model,
+                        messages: [{ role: 'user', content: 'Hi' }],
+                        max_tokens: 5
+                    })
+                });
+                return response.ok;
+            }
+            return false;
+        }
+        function showApiStatus(message, type) {
+            const status = document.getElementById('apiStatus');
+            status.textContent = message;
+            status.className = 'api-status ' + type;
+        }
+        function hideApiStatus() {
+            const status = document.getElementById('apiStatus');
+            status.className = 'api-status';
+        }
+        // タブ切り替え
+        function initTabs() {
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(tab => {
+                tab.addEventListener('click', function () {
+                    const targetTab = this.getAttribute('data-tab');
+                    switchTab(targetTab);
+                });
+            });
+        }
+        function switchTab(tabId) {
+            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            const targetPanel = document.getElementById(tabId);
+            const targetTab = document.querySelector(`[data-tab="${tabId}"]`);
+            if (targetPanel) targetPanel.classList.add('active');
+            if (targetTab) targetTab.classList.add('active');
+            hideResult();
+            hideError();
+        }
+        // ボタン初期化
+        function initButtons() {
+            const buttons = document.querySelectorAll('.btn-primary');
+            buttons.forEach(btn => {
+                btn.addEventListener('click', function () {
+                    const mode = this.getAttribute('data-mode');
+                    runAI(mode);
+                });
+            });
+        }
+        // コピーボタン
+        function initCopyButton() {
+            const copyBtn = document.getElementById('copyBtn');
+            copyBtn.addEventListener('click', copyResult);
+        }
+        // AI実行メイン関数
+        async function runAI(mode) {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            if (!apiKey) {
+                showError(" APIキーを入力してください");
+                return;
+            }
+            const config = CONFIG[currentProvider];
+            if (!apiKey.startsWith(config.keyPrefix)) {
+                showError(` ${currentProvider.toUpperCase()} APIキーは ${config.keyPrefix} で始まる必要があります`);
+                return;
+            }
+            let prompt = "";
+            // プロンプト生成
+            if (mode === 'generate') {
+                const topic = document.getElementById('genTopic').value.trim();
+                const kws = document.getElementById('genKeywords').value.trim();
+                if (!topic) {
+                    showError(" トピックを入力してください");
+                    return;
+                }
+                prompt = `以下のトピックについて、読みやすく構造化されたブログ記事を日本語で書いてください。
+【トピック】
+${topic}
+${kws ? `【含めるキーワード】\n${kws}\n` : ''}
+【記事の構成】
+1. キャッチーなタイトル
+2. 導入文（読者の興味を引く）
+3. 本文（3〜4つのセクションに分けて、各セクションに見出しをつける）
+4. まとめ（要点を振り返り、行動を促す）
+読みやすく、具体的で、実用的な内容にしてください。`;
+            }
+            else if (mode === 'summarize') {
+                const text = document.getElementById('sumText').value.trim();
+                const len = document.getElementById('sumLength').value;
+                if (!text) {
+                    showError(" 要約するテキストを入力してください");
+                    return;
+                }
+                let lenInst = '';
+                if (len === 'short') {
+                    lenInst = "2〜3行で簡潔に要約してください。";
+                } else if (len === 'detail') {
+                    lenInst = "重要なポイントを箇条書きで詳しく要約してください。";
+                } else {
+                    lenInst = "5〜7行程度で、要点を押さえて要約してください。";
+                }
+                prompt = `次の文章を要約してください。
+【要約の指示】
+${lenInst}
+【文章】
+${text}`;
+            }
+            else if (mode === 'translate') {
+                const text = document.getElementById('transText').value.trim();
+                const lang = document.getElementById('transLang').value;
+                if (!text) {
+                    showError(" 翻訳するテキストを入力してください");
+                    return;
+                }
+                prompt = `次の文章を${lang}に翻訳してください。
+自然で流暢な表現を心がけ、文化的なニュアンスも考慮してください。
+【原文】
+${text}`;
+            }
+            // UI更新
+            showLoading();
+            hideError();
+            hideResult();
+            disableButtons(true);
+            try {
+                let result;
+                if (currentProvider === 'openai') {
+                    result = await callOpenAI(apiKey, prompt);
+                } else if (currentProvider === 'gemini') {
+                    result = await callGemini(apiKey, prompt);
+                } else if (currentProvider === 'anthropic') {
+                    result = await callAnthropic(apiKey, prompt);
+                }
+                if (result) {
+                    showResult(result);
+                }
+            }
+            catch (error) {
+                console.error('Error:', error);
+                handleAPIError(error);
+            }
+            finally {
+                hideLoading();
+                disableButtons(false);
+            }
+        }
+        // OpenAI API呼び出し
+        async function callOpenAI(apiKey, prompt) {
+            const response = await fetch(CONFIG.openai.endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({
+                    model: CONFIG.openai.model,
+                    messages: [{ role: 'user', content: prompt }],
+                    temperature: 0.7,
+                    max_tokens: 2000
+                })
+            });
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw {
+                    status: response.status,
+                    message: errorData.error?.message || `HTTP ${response.status}`,
+                    type: errorData.error?.type
+                };
+            }
+            const data = await response.json();
+            return data.choices[0].message.content;
+        }
+        // Google Gemini API呼び出し
+        async function callGemini(apiKey, prompt) {
+            const url = `${CONFIG.gemini.endpoint}?key=${apiKey}`;
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: {
+                        temperature: 0.7,
+                        maxOutputTokens: 2000
+                    }
+                })
+            });
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw {
+                    status: response.status,
+                    message: errorData.error?.message || `HTTP ${response.status}`
+                };
+            }
+            const data = await response.json();
+            return data.candidates[0].content.parts[0].text;
+        }
+        // Anthropic Claude API呼び出し
+        async function callAnthropic(apiKey, prompt) {
+            const response = await fetch(CONFIG.anthropic.endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-api-key': apiKey,
+                    'anthropic-version': '2023-06-01'
+                },
+                body: JSON.stringify({
+                    model: CONFIG.anthropic.model,
+                    messages: [{ role: 'user', content: prompt }],
+                    max_tokens: 2000
+                })
+            });
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw {
+                    status: response.status,
+                    message: errorData.error?.message || `HTTP ${response.status}`
+                };
+            }
+            const data = await response.json();
+            return data.content[0].text;
+        }
+        // エラーハンドリング
+        function handleAPIError(error) {
+            let errorMsg = '';
+            if (error.status === 401) {
+                errorMsg = `<strong> 認証エラー (401)</strong><br>
+APIキーが無効です。以下を確認してください：<br>
+• APIキーが正しく入力されているか<br>
+• APIキーの有効期限が切れていないか<br>
+• 選択したプロバイダーとAPIキーが一致しているか`;
+            }
+            else if (error.status === 429) {
+                errorMsg = `<strong> レート制限エラー (429)</strong><br>
+API呼び出しの制限に達しました：<br>
+• 無料プランの場合：1分間に3回までの制限があります<br>
+• 数分待ってから再試行してください<br>
+• 有料プランへのアップグレードを検討してください`;
+            }
+            else if (error.status === 403) {
+                errorMsg = `<strong> アクセス拒否エラー (403)</strong><br>
+APIへのアクセスが拒否されました：<br>
+• アカウントの支払い設定を確認してください<br>
+• APIの利用権限があるか確認してください`;
+            }
+            else if (error.status === 500 || error.status === 503) {
+                errorMsg = `<strong> サーバーエラー (${error.status})</strong><br>
+APIサーバーで問題が発生しています。<br>
+しばらく待ってから再試行してください。`;
+            }
+            else {
+                errorMsg = `<strong> エラーが発生しました</strong><br>
+${error.message || '不明なエラー'}<br>
+${error.status ? `ステータスコード: ${error.status}` : ''}`;
+            }
+            showError(errorMsg);
+        }
+        // UI制御関数
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+        }
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+        function showResult(content) {
+            document.getElementById('resultContent').textContent = content;
+            document.getElementById('result').style.display = 'block';
+            // 結果までスクロール
+            document.getElementById('result').scrollIntoView({
+                behavior: 'smooth',
+                block: 'nearest'
+            });
+        }
+        function hideResult() {
+            document.getElementById('result').style.display = 'none';
+        }
+        function showError(message) {
+            const errorElement = document.getElementById('errorMessage');
+            errorElement.innerHTML = message;
+            errorElement.style.display = 'block';
+            // エラーまでスクロール
+            errorElement.scrollIntoView({
+                behavior: 'smooth',
+                block: 'nearest'
+            });
+        }
+        function hideError() {
+            document.getElementById('errorMessage').style.display = 'none';
+        }
+        function disableButtons(disabled) {
+            document.querySelectorAll('.btn-primary').forEach(btn => {
+                btn.disabled = disabled;
+            });
+        }
+        // コピー機能
+        function copyResult() {
+            const text = document.getElementById('resultContent').textContent;
+            const btn = document.getElementById('copyBtn');
+            navigator.clipboard.writeText(text).then(() => {
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '✓ コピー完了';
+                btn.classList.add('copied');
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.classList.remove('copied');
+                }, 2000);
+            }).catch(err => {
+                showError(' コピーに失敗しました');
+                console.error('Copy failed:', err);
+            });
+        }
+    </script>
+</body>
+
+</html>

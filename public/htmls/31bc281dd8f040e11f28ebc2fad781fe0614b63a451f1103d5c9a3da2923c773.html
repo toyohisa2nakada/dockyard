@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="ja">
+
+<head>
+    <meta charset="utf-8" />
+    <title>材料→料理おすすめ（TFJS学習）</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 20px;
+        }
+
+        input {
+            width: 420px;
+            padding: 8px;
+        }
+
+        button {
+            padding: 8px 12px;
+            margin-right: 8px;
+        }
+
+        .box {
+            margin-top: 14px;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+
+        pre {
+            background: #f6f6f6;
+            padding: 10px;
+            border-radius: 8px;
+            overflow: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>材料→料理おすすめ</h1>
+    <div class="box">
+        <h2>1) 学習</h2>
+        <button id="trainBtn">学習する</button>
+        <span id="trainStatus">未学習</span>
+        <pre id="trainLog"></pre>
+    </div>
+    <div class="box">
+        <h2>2) おすすめ</h2>
+        <p>材料をカンマ区切りで入力（例：卵, キャベツ, ツナ）</p>
+        <input id="ingredientsInput" placeholder="卵, キャベツ, ツナ" />
+        <button id="recBtn">おすすめ表示</button>
+        <ol id="result"></ol>
+    </div>
+    <script>
+        // ===== 学習用データ =====
+        const recipes = [
+            { name: "オムライス", ingredients: ["卵", "ごはん", "ケチャップ", "玉ねぎ"] },
+            { name: "オムライス", ingredients: ["卵", "ごはん", "ケチャップ", "玉ねぎ", "ひき肉"] },
+            { name: "卵スープ", ingredients: ["卵", "ねぎ", "鶏ガラ", "しょうゆ"] },
+            { name: "ツナキャベツサラダ", ingredients: ["ツナ", "キャベツ", "マヨネーズ"] },
+            { name: "回鍋肉", ingredients: ["キャベツ", "ピーマン", "豚肉", "長ねぎ"] },
+            { name: "回鍋肉", ingredients: ["キャベツ", "ピーマン", "豚肉", "長ねぎ", "なす", "にんじん"] },
+            { name: "ツナマヨおにぎり", ingredients: ["ツナ", "マヨネーズ", "ごはん", "のり"] },
+            { name: "チャーハン", ingredients: ["ごはん", "卵", "ねぎ", "チャーシュー"] },
+            { name: "チャーハン", ingredients: ["ごはん", "卵", "ねぎ", "ベーコン", "にんじん"] },
+            { name: "味噌汁", ingredients: ["味噌", "豆腐", "長ねぎ", "わかめ"] },
+            { name: "味噌汁", ingredients: ["味噌", "油揚げ", "長ねぎ", "もやし"] },
+            { name: "豚汁", ingredients: ["豚肉", "にんじん", "味噌", "大根", "ごぼう", "こんにゃく"] },
+            { name: "豚汁", ingredients: ["ウィンナー", "かぼちゃ", "味噌", "じゃがいも", "ごぼう", "こんにゃく", "玉ねぎ"] },
+            { name: "肉じゃが", ingredients: ["牛肉", "じゃがいも", "にんじん", "糸こんにゃく"] },
+            { name: "肉じゃが", ingredients: ["ウィンナー", "さつまいも", "きのこ", "糸こんにゃく", "大根"] },
+
+            { name: "カレー", ingredients: ["肉", "玉ねぎ", "にんじん", "じゃがいも", "カレールー"] },
+            { name: "ハンバーグ", ingredients: ["ひき肉", "玉ねぎ", "卵", "パン粉", "塩"] },
+            { name: "煮物", ingredients: ["だし", "しょうゆ", "みりん", "砂糖", "にんじん"] },
+            { name: "からあげ", ingredients: ["鶏肉", "しょうゆ", "しょうが", "にんにく", "片栗粉"] },
+            { name: "シチュー", ingredients: ["肉", "玉ねぎ", "にんじん", "じゃがいも", "シチュールー"] },
+            { name: "おでん", ingredients: ["大根", "卵", "こんにゃく", "ちくわ", "だし"] },
+            { name: "サラダ", ingredients: ["レタス", "トマト", "きゅうり", "ドレッシング"] },
+            { name: "すき焼き", ingredients: ["牛肉", "白菜", "ねぎ", "豆腐", "しょうゆ"] },
+            { name: "豚汁", ingredients: ["豚肉", "大根", "にんじん", "味噌", "ねぎ"] },
+            { name: "酢豚", ingredients: ["豚肉", "ピーマン", "玉ねぎ", "にんじん", "酢"] },
+
+            { name: "ショートケーキ", ingredients: ["小麦粉", "卵", "砂糖", "生クリーム", "いちご"] },
+            { name: "青椒肉絲", ingredients: ["牛肉", "ピーマン", "たけのこ", "しょうゆ", "ごま油"] },
+            { name: "ピザ", ingredients: ["小麦粉", "チーズ", "トマトソース", "ベーコン", "玉ねぎ"] },
+            { name: "スパゲッティ", ingredients: ["パスタ", "トマトソース", "にんにく", "オリーブオイル"] },
+            { name: "餃子", ingredients: ["ひき肉", "キャベツ", "にら", "餃子の皮", "しょうゆ"] },
+            { name: "ミネストローネスープ", ingredients: ["トマト", "玉ねぎ", "にんじん", "豆", "コンソメ"] },
+
+            { name: "生姜焼き", ingredients: ["豚肉", "しょうが", "しょうゆ", "みりん", "玉ねぎ"] },
+            { name: "ステーキ", ingredients: ["牛肉", "塩", "こしょう", "にんにく", "バター"] },
+            { name: "海鮮丼", ingredients: ["ごはん", "刺身", "しょうゆ", "のり", "わさび"] },
+            { name: "茶碗蒸し", ingredients: ["卵", "だし", "しょうゆ", "鶏肉", "しいたけ"] },
+            { name: "お好み焼き", ingredients: ["キャベツ", "小麦粉", "卵", "豚肉", "ソース"] },
+            { name: "天ぷら", ingredients: ["小麦粉", "卵", "油", "えび", "なす"] },
+            { name: "ドリア", ingredients: ["ごはん", "ホワイトソース", "チーズ", "玉ねぎ"] },
+
+            { name: "卵かけごはん", ingredients: ["ごはん", "卵", "しょうゆ"] },
+            { name: "卵そぼろ丼", ingredients: ["ごはん", "卵", "砂糖", "しょうゆ"] },
+            { name: "卵サンド", ingredients: ["食パン", "卵", "マヨネーズ"] },
+            { name: "ほうれん草のお浸し", ingredients: ["ほうれん草", "しょうゆ", "かつおぶし"] },
+
+            { name: "麻婆豆腐", ingredients: ["豆腐", "ひき肉", "ねぎ", "にんにく", "味噌"] },
+            { name: "チキン南蛮", ingredients: ["鶏肉", "卵", "酢", "マヨネーズ"] },
+            { name: "豚キムチ", ingredients: ["豚肉", "キムチ", "ねぎ", "しょうゆ", "ごま油"] },
+            { name: "豚の角煮", ingredients: ["豚肉", "しょうゆ", "みりん", "砂糖", "しょうが"] },
+            { name: "ビーフシチュー", ingredients: ["牛肉", "玉ねぎ", "にんじん", "赤ワイン", "トマト"] },
+            { name: "親子丼", ingredients: ["鶏肉", "卵", "玉ねぎ", "ごはん", "しょうゆ"] },
+        ];
+
+        const uniq = (arr) => [...new Set(arr)];
+        const normalize = (s) => s.trim().replace(/\s+/g, "");
+        const allIngredients = uniq(recipes.flatMap(r => r.ingredients.map(normalize))).sort();
+        const allRecipeNames = uniq(recipes.map(r => r.name)).sort();
+        const ing2idx = new Map(allIngredients.map((x, i) => [x, i]));
+        const recipe2idx = new Map(allRecipeNames.map((x, i) => [x, i]));
+        function encodeIngredients(ingredientsArr) {
+            const v = new Array(allIngredients.length).fill(0);
+            ingredientsArr.map(normalize).filter(Boolean).forEach(ing => {
+                const idx = ing2idx.get(ing);
+                if (idx !== undefined) v[idx] = 1;
+            });
+            return v;
+        }
+        function makeTrainingData(augmentPerRecipe = 30) {
+            const X = [];
+            const y = [];
+            for (const r of recipes) {
+                const label = recipe2idx.get(r.name);
+                const base = r.ingredients.map(normalize);
+                X.push(encodeIngredients(base));
+                y.push(label);
+                for (let k = 0; k < augmentPerRecipe; k++) {
+                    const keep = base.filter(() => Math.random() < 0.75);
+                    const final = keep.length > 0 ? keep : base;
+                    X.push(encodeIngredients(final));
+                    y.push(label);
+                }
+            }
+            return {
+                xs: tf.tensor2d(X, [X.length, allIngredients.length], "float32"),
+                ys: tf.tensor1d(y, "float32"),
+            };
+        }
+        function createModel() {
+            const model = tf.sequential();
+            model.add(tf.layers.dense({ inputShape: [allIngredients.length], units: 64, activation: "relu" }));
+            model.add(tf.layers.dense({ units: allRecipeNames.length, activation: "softmax" }));
+            model.compile({
+                optimizer: tf.train.adam(0.01),
+                loss: "sparseCategoricalCrossentropy",
+                metrics: ["accuracy"],
+            });
+            return model;
+        }
+        let model = null;
+        let trained = false;
+        // ===== UI要素 =====
+        const trainBtn = document.getElementById("trainBtn");
+        const trainStatus = document.getElementById("trainStatus");
+        const trainLog = document.getElementById("trainLog");
+        const recBtn = document.getElementById("recBtn");
+        const ingredientsInput = document.getElementById("ingredientsInput");
+        const result = document.getElementById("result");
+        // 参考表示（語彙）
+        trainLog.textContent =
+            "材料語彙:\n" + allIngredients.join(", ") +
+            "\n\n料理ラベル:\n" + allRecipeNames.join(", ");
+        // ===== 学習ボタン =====
+        trainBtn.addEventListener("click", async () => {
+            trainLog.textContent = "";
+            trainStatus.textContent = "学習中…";
+            try {
+                await tf.ready();
+                await tf.setBackend("cpu"); // 固まり対策（後で消してOK）
+                if (model) model.dispose();
+                model = createModel();
+                const { xs, ys } = makeTrainingData(40);
+                const epochs = 10;
+                const batchSize = 16;
+                await model.fit(xs, ys, {
+                    epochs,
+                    batchSize,
+                    shuffle: true,
+                    callbacks: {
+                        onEpochEnd: async (epoch, logs) => {
+                            const loss = logs?.loss;
+                            const acc = logs?.acc ?? logs?.accuracy;
+                            const lossText = (typeof loss === "number") ? loss.toFixed(4) : "n/a";
+                            const accText = (typeof acc === "number") ? acc.toFixed(4) : "n/a";
+                            trainLog.textContent += `epoch ${epoch + 1}/${epochs}  loss=${lossText}  acc=${accText}\n`;
+                            await tf.nextFrame();
+                        }
+                    }
+                });
+                xs.dispose();
+                ys.dispose();
+                trained = true;
+                trainStatus.textContent = "学習完了";
+            } catch (e) {
+                trainStatus.textContent = "エラーで停止";
+                trainLog.textContent += "\n[ERROR]\n" + (e?.stack ?? e);
+                console.error(e);
+            }
+        });
+        // ===== 推論 =====
+        function predictTopN(inputIngredients, topN = 5) {
+            const x = tf.tensor2d([encodeIngredients(inputIngredients)], [1, allIngredients.length], "float32");
+            const probs = model.predict(x);
+            const data = probs.dataSync();
+            x.dispose();
+            probs.dispose();
+            const scored = allRecipeNames.map((name, idx) => ({ name, score: data[idx] }));
+            scored.sort((a, b) => b.score - a.score);
+            return scored.slice(0, topN);
+        }
+        // ===== おすすめボタン =====
+        recBtn.addEventListener("click", () => {
+            result.innerHTML = "";
+            if (!trained || !model) {
+                const li = document.createElement("li");
+                li.textContent = "先に「学習する」を押してください。";
+                result.appendChild(li);
+                return;
+            }
+            const raw = ingredientsInput.value;
+            const inputIngredients = raw.split(",").map(s => s.trim()).filter(Boolean);
+            const top = predictTopN(inputIngredients, 5);
+            top.forEach((r) => {
+                const li = document.createElement("li");
+                const percent = (r.score * 100).toFixed(1);
+                li.textContent = `${r.name}（おすすめ度: ${percent}%）`;
+
+                result.appendChild(li);
+            });
+        });
+    </script>
+</body>
+
+</html>

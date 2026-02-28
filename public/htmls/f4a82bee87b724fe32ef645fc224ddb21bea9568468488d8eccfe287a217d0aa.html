@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Fitness Memo</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <style>
+        body {
+            margin: 0;
+            font-family: "Segoe UI", sans-serif;
+            background: #eaeef3;
+        }
+
+        .app {
+            max-width: 420px;
+            margin: auto;
+            background: #f7f9fc;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: #4f7cff;
+            color: white;
+            padding: 14px;
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .content {
+            padding: 12px;
+
+            overflow-y: auto;
+        }
+
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 14px;
+            margin-bottom: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, .08);
+        }
+
+        input,
+        select,
+        textarea,
+        button {
+            width: 100%;
+            margin-top: 6px;
+            padding: 10px;
+            border-radius: 10px;
+            border: 1px solid #ddd;
+            font-size: 14px;
+        }
+
+        button {
+            background: #4f7cff;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        .delete-btn {
+            background: #ff4d4d;
+            margin-top: 6px;
+        }
+
+        .small {
+            background: #777;
+            margin-top: 6px;
+        }
+
+        .tag {
+            color: white;
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            margin-left: 6px;
+        }
+
+        .strength {
+            background: #ff7a7a;
+        }
+
+        .cardio {
+            background: #4caf50;
+        }
+
+        .progress-bar {
+            background: #ddd;
+            height: 16px;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 6px;
+        }
+
+        .progress {
+            background: #4caf50;
+            height: 100%;
+            width: 0%;
+            transition: .3s;
+        }
+
+        .record {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #eee;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="app">
+
+        <div class="header">🏋️ Fitness Memo</div>
+
+        <div class="content">
+
+            <!-- 目標 -->
+            <div class="card">
+                <h3>🎯 筋トレ目標（回）</h3>
+                <input id="strengthGoal">
+
+                <div class="progress-bar">
+                    <div class="progress" id="strengthBar"></div>
+                </div>
+
+                <h3 style="margin-top:12px;">🎯 有酸素目標（分）</h3>
+                <input id="cardioGoal">
+
+                <div class="progress-bar">
+                    <div class="progress" id="cardioBar"></div>
+                </div>
+
+                <button onclick="saveGoals()">保存</button>
+
+                <div id="goalStatus"></div>
+            </div>
+
+            <!-- 入力 -->
+            <div class="card">
+                <input id="name" placeholder="種目名">
+
+                <select id="type">
+                    <option value="strength">筋トレ</option>
+                    <option value="cardio">有酸素</option>
+                </select>
+
+                <input id="amount" placeholder="回数 または 分">
+
+                <textarea id="note" placeholder="メモ"></textarea>
+
+                <button onclick="addRecord()">記録</button>
+            </div>
+
+            <!-- 検索 -->
+            <div class="card">
+                <input id="search" placeholder="🔍 検索" oninput="render()">
+
+                <select id="filter" onchange="render()">
+                    <option value="all">すべて</option>
+                    <option value="strength">筋トレ</option>
+                    <option value="cardio">有酸素</option>
+                </select>
+
+                <div id="list"></div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        let records = JSON.parse(localStorage.getItem("records")) || [];
+
+        let strengthGoal = Number(localStorage.getItem("strengthGoal")) || 0;
+        let cardioGoal = Number(localStorage.getItem("cardioGoal")) || 0;
+
+        strengthGoalEl().value = strengthGoal || "";
+        cardioGoalEl().value = cardioGoal || "";
+
+        // 目標保存
+        function saveGoals() {
+            strengthGoal = Number(strengthGoalEl().value);
+            cardioGoal = Number(cardioGoalEl().value);
+
+            localStorage.setItem("strengthGoal", strengthGoal);
+            localStorage.setItem("cardioGoal", cardioGoal);
+
+            render();
+        }
+
+        // 保存
+        function save() {
+            localStorage.setItem("records", JSON.stringify(records));
+        }
+
+        // 追加
+        function addRecord() {
+            const name = nameEl().value;
+            const type = typeEl().value;
+            const amount = Number(amountEl().value);
+            const note = noteEl().value;
+
+            if (!name || !amount) return;
+
+            records.push({
+                name,
+                type,
+                amount,
+                note,
+                date: new Date().toLocaleString()
+            });
+
+            save();
+            clear();
+            render();
+        }
+
+        // 入力クリア
+        function clear() {
+            nameEl().value = "";
+            amountEl().value = "";
+            noteEl().value = "";
+        }
+
+        // 今週合計
+        function getWeekly(type) {
+            const now = new Date();
+            const start = new Date(now);
+            start.setDate(now.getDate() - now.getDay());
+
+            return records.filter(r => r.type === type && new Date(r.date) >= start)
+                .reduce((sum, r) => sum + r.amount, 0);
+        }
+
+        // 表示
+        function render() {
+            const list = document.getElementById("list");
+            const key = search.value.toLowerCase();
+            const fil = filter.value;
+
+            list.innerHTML = "";
+
+            const display = [...records].reverse()
+                .filter(r => r.name.toLowerCase().includes(key))
+                .filter(r => fil === "all" || r.type === fil);
+
+            display.forEach(r => {
+                const unit = r.type === "strength" ? "回" : "分";
+
+                const div = document.createElement("div");
+                div.className = "record";
+
+                div.innerHTML = `
+  <strong>${r.name}</strong>
+  <span class="tag ${r.type}">
+   ${r.type === "strength" ? "筋トレ" : "有酸素"}
+  </span>
+
+  <p>量：${r.amount}${unit}</p>
+  <p>${r.note}</p>
+  <small>📅 ${r.date}</small>
+
+  <button class="delete-btn" onclick="removeRecord('${r.date}')">削除</button>
+ `;
+
+                list.appendChild(div);
+            });
+
+            updateGoals();
+        }
+
+        // 削除
+        function removeRecord(date) {
+            records = records.filter(r => r.date !== date);
+            save();
+            render();
+        }
+
+        // 進捗更新
+        function updateGoals() {
+            const sTotal = getWeekly("strength");
+            const cTotal = getWeekly("cardio");
+
+            const sPercent = strengthGoal ? Math.min(100, sTotal / strengthGoal * 100) : 0;
+            const cPercent = cardioGoal ? Math.min(100, cTotal / cardioGoal * 100) : 0;
+
+            strengthBar().style.width = sPercent + "%";
+            cardioBar().style.width = cPercent + "%";
+
+            document.getElementById("goalStatus").innerHTML =
+                `筋トレ：${sTotal}/${strengthGoal || 0}回<br>
+  有酸素：${cTotal}/${cardioGoal || 0}分`;
+        }
+
+        // ショートカット
+        const nameEl = () => document.getElementById("name");
+        const typeEl = () => document.getElementById("type");
+        const amountEl = () => document.getElementById("amount");
+        const noteEl = () => document.getElementById("note");
+
+        const strengthGoalEl = () => document.getElementById("strengthGoal");
+        const cardioGoalEl = () => document.getElementById("cardioGoal");
+
+        const strengthBar = () => document.getElementById("strengthBar");
+        const cardioBar = () => document.getElementById("cardioBar");
+
+        // 初期表示
+        render();
+    </script>
+
+</body>
+
+</html>

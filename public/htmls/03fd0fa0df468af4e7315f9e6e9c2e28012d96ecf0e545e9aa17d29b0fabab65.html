@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <title>京都風 嫌味変換機</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            background: #f6f4f1;
+            padding: 20px;
+        }
+
+        h1 {
+            margin-bottom: 10px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 120px;
+            font-size: 16px;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        button {
+            margin-top: 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        .result {
+            margin-top: 20px;
+            background: #ffffff;
+            padding: 15px;
+            border-left: 6px solid #9c7a4b;
+            white-space: pre-wrap;
+            font-size: 16px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>京都の人みたいに嫌味たらしく変換</h1>
+    <textarea id="inputText" placeholder="例：仕事雑だし遅いし普通だよね"></textarea>
+    <br>
+    <button onclick="convert()">変換する</button>
+    <div class="result" id="resultText"></div>
+    <script>
+        function convert() {
+            let text = document.getElementById("inputText").value;
+            const endingReplaceRules = [
+                { from: /だよね/g, to: "どすなあ" },
+                { from: /思ってるの/g, to: "思てはるんやろか？" },
+                { from: /だよ/g, to: "どすえ" },
+                { from: /じゃん/g, to: "ということどすなあ" },
+                { from: /じゃない?/g, to: "やないんどすか" },
+                { from: /でしょ/g, to: "でしょうなあ" },
+                { from: /かな/g, to: "かもしれまへんなあ" },
+                { from: /思う/g, to: "思てますえ" }
+            ];
+            endingReplaceRules.forEach(rule => {
+                text = text.replace(rule.from, rule.to);
+            });
+            const rules = [
+                /* 人称 */
+                { from: /あなた/g, to: "あんさん" },
+                { from: /お兄さん/g, to: "若旦那さん" },
+                { from: /お姉さん/g, to: "お嬢さん" },
+                { from: /娘/g, to: "お嬢ちゃん" },
+                { from: /息子/g, to: "お坊ちゃん" },
+                { from: /おばさん/g, to: "奥さん" },
+                { from: /おじさん/g, to: "旦那さん" },
+                { from: /おじいさん/g, to: "ご隠居はん" },
+                { from: /おばあさん/g, to: "大奥さま" },
+                { from: /君/g, to: "そちらはん" },
+                { from: /お前/g, to: "お客はん" },
+                { from: /私/g, to: "うち" },
+                { from: /俺/g, to: "わて" },
+                { from: /僕/g, to: "こちら" },
+                { from: /あの人/g, to: "あの方" },
+                { from: /その人/g, to: "そちらの方" },
+                { from: /彼女/g, to: "あちらさん" },
+                { from: /彼/g, to: "あのお方" },
+                /* 能力・評価 */
+                { from: /すごい/g, to: "えらい" },
+                { from: /普通/g, to: "ちょうどええ塩梅" },
+                { from: /下手/g, to: "まだ工夫の余地がおあり" },
+                { from: /上手/g, to: "慣れてはる方は違いますなあ" },
+                { from: /できる/g, to: "お得意なことがおありなんどすなあ" },
+                { from: /できない/g, to: "ご苦労が多そうどすなあ" },
+                { from: /優秀/g, to: "よう出来はる方" },
+                { from: /頭いい/g, to: "要領がよろしい方" },
+                { from: /無能/g, to: "向き不向きがはっきりしてはる" },
+                { from: /バカ/g, to: "お若いんやわぁ" },
+                /* 仕事・作業 */
+                { from: /仕事/g, to: "お役目" },
+                { from: /頑張った/g, to: "よう気張らはりましたなあ" },
+                { from: /サボる/g, to: "力配分がお上手どすなあ" },
+                { from: /雑/g, to: "大胆なお仕事ぶりどすなあ" },
+                { from: /丁寧/g, to: "時間を惜しまへん方どすなあ" },
+                { from: /ミス/g, to: "少し確認が足りてへんかっただけどすえ" },
+                /* スピード・結果 */
+                { from: /遅い/g, to: "時間の使い方がずいぶん余裕おありどすなあ" },
+                { from: /早い/g, to: "えらいせっかちでいらっしゃいますなあ" },
+                { from: /遅刻/g, to: "時間に縛られへん生き方どすなあ" },
+                { from: /失敗/g, to: "ええ勉強になりはりましたなあ" },
+                { from: /成功/g, to: "運も味方しはったんどすなあ" },
+                /* 性格・態度 */
+                { from: /うるさ/g, to: "ずいぶん賑やかでいらっしゃいますなあ" },
+                { from: /真面目/g, to: "融通が利かへんほどきっちりしてはりますなあ" },
+                { from: /適当/g, to: "肩の力を抜いてはるんどすなあ" },
+                { from: /頑固/g, to: "信念を曲げはらへん方どすなあ" },
+                { from: /空気が読めない/g, to: "周りに左右されへん方どすなあ" },
+                /* 知識・会話 */
+                { from: /知らない/g, to: "ご存じない世界もおありなんどすなあ" },
+                { from: /分からない/g, to: "難しい話はお苦手どすか" },
+                { from: /話が長い/g, to: "お話が尽きまへんなあ" },
+                { from: /説明下手/g, to: "想像力を試されますなあ" },
+                /* 見た目 */
+                { from: /太った/g, to: "貫禄がついてきはりましたなあ" },
+                { from: /痩せた/g, to: "ずいぶんすっきりしはりましたなあ" },
+                { from: /ブス/g, to: "好みはほんま人それぞれどすなあ" },
+                { from: /地味/g, to: "落ち着いた装いどすなあ" },
+                { from: /派手/g, to: "存在感がございますなあ" },
+                /* 判断・感情 */
+                { from: /正しい/g, to: "筋は通ってる気ぃしますなあ" },
+                { from: /勝手に/g, to: "こちらにも段取りがありますさかい" },
+                { from: /間違い/g, to: "別の考え方もありそうどすなあ" },
+                { from: /無理/g, to: "今はまだご縁がないんどすなあ" },
+                { from: /怒る/g, to: "感情表現が豊かどすなあ" },
+                /* 分末 */
+                { from: /思ってる？/g, to: "思ってはる？" },
+                { from: /帰れ/g, to: "そろそろお引き取りどきやと思いますえ" },
+                { from: /なるほど/g, to: "他所さんはそうどすなあ" },
+                { from: /やめて/g, to: "そこまでせんでもよろしおすえ" },
+                { from: /考えなんだ/g, to: "お考えなんどすなあ" },
+                { from: /しないで/g, to: "せんでよろしおすえ" },
+                { from: /大変だね/g, to: "ご苦労さまどすなあ" },
+                /* 接続 */
+                { from: /なんだから/g, to: "さかい" },
+                { from: /んだから/g, to: "さかい" },
+                { from: /だからね/g, to: "さかいやし" },
+                { from: /だから/g, to: "さかい" },
+                { from: /なので/g, to: "さかいに" },
+                { from: /なんで/g, to: "さかい" },
+                { from: /だし/g, to: "し" },
+                /* 感謝・謝罪 */
+                { from: /ありがとう/g, to: "ご丁寧におおきに" },
+                { from: /すみません|ごめん/g, to: "そこまで気にせんでもよろしおすえ" }
+            ];
+            rules.forEach(rule => {
+                text = text.replace(rule.from, rule.to);
+            });
+            document.getElementById("resultText").innerText = text;
+        }
+    </script>
+</body>
+
+</html>

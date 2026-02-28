@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>iLiFE! 音ゲープロトタイプ（レーン最終版）</title>
+    <style>
+        body {
+            text-align: center;
+            font-family: sans-serif;
+            background: #ffecf7;
+        }
+
+        #gameCanvas {
+            background: linear-gradient(#ffe6f0, #ffd1e8);
+            margin-top: 20px;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+            border-radius: 20px;
+            box-shadow: 0 0 20px #ffb6d5;
+        }
+
+        p {
+            font-size: 18px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>iLiFE! 音ゲー</h1> <label>曲を選択: <select id="songSelect">
+            <option value="sample1">サンプル音源 1</option>
+            <option value="sample2">サンプル音源 2</option>
+            <option value="sample3">サンプル音源 3</option>
+            <option value="sample4">サンプル音源 4</option>
+        </select> </label> <button onclick="startGame()">ゲーム開始</button> <canvas id="gameCanvas" width="400"
+        height="600"></canvas>
+    <p>Score: <span id="scoreDisplay">0</span></p>
+    <p>キー: A / S / D / F</p> <audio id="bgm" src="" preload="auto"></audio>
+    <script> const canvas = document.getElementById("gameCanvas"); const ctx = canvas.getContext("2d"); const bgm = document.getElementById("bgm"); const scoreDisplay = document.getElementById("scoreDisplay"); let notes = []; let score = 0; const stars = []; const laneWidth = 100; const keys = ["a", "s", "d", "f"]; const songs = { sample1: { bpm: 120 }, sample2: { bpm: 140 }, sample3: { bpm: 160 }, sample4: { bpm: 130 } }; const songFiles = { sample1: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3", sample2: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3", sample3: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3", sample4: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3" };
+        // キラキラ星生成 
+        function createStars(count = 50) { for (let i = 0; i < count; i++) { stars.push({ x: Math.random() * canvas.width, y: Math.random() * canvas.height, r: Math.random() * 2 + 1, alpha: Math.random(), delta: Math.random() * 0.02 + 0.01 }); } } createStars(); function drawStars() { stars.forEach(star => { star.alpha += star.delta; if (star.alpha > 1 || star.alpha < 0) star.delta *= -1; ctx.fillStyle = `rgba(255,255,255,${star.alpha})`; ctx.beginPath(); ctx.arc(star.x, star.y, star.r, 0, Math.PI * 2); ctx.fill(); }); }
+        // レーン描画 
+        function drawLanes() { for (let i = 0; i < 4; i++) { ctx.fillStyle = "rgba(255,192,203,0.3)"; ctx.fillRect(i * laneWidth, 0, laneWidth, canvas.height); ctx.fillStyle = "white"; ctx.font = "20px sans-serif"; ctx.textAlign = "center"; ctx.fillText(keys[i].toUpperCase(), i * laneWidth + laneWidth / 2, 580); } }
+        // 判定ライン 
+        function drawJudgementLine() { ctx.fillStyle = "rgba(255,255,255,0.5)"; ctx.fillRect(0, 550, canvas.width, 5); }
+        // ノーツ生成 
+        function generateNotes(bpm) {
+            notes = []; for (let i = 0; i < 50; i++) {
+                const laneIndex = Math.floor(Math.random() * 4); notes.push({
+                    x: laneIndex * laneWidth + laneWidth / 2 - 25, y: -50 * i, hit: false, hitEffect: false, hitEffectAlpha: 1,
+                    lane: laneIndex
+                });
+            }
+        }
+        // 描画ループ 
+        function draw() { ctx.clearRect(0, 0, canvas.width, canvas.height); drawStars(); drawLanes(); drawJudgementLine(); notes.forEach(note => { if (!note.hit) { ctx.fillStyle = "pink"; ctx.beginPath(); ctx.arc(note.x + 25, note.y + 25, 25, 0, Math.PI * 2); ctx.fill(); } else if (note.hitEffect) { ctx.fillStyle = `rgba(255,255,255,${note.hitEffectAlpha})`; ctx.beginPath(); ctx.arc(note.x + 25, 550, 30, 0, Math.PI * 2); ctx.fill(); note.hitEffectAlpha -= 0.05; if (note.hitEffectAlpha <= 0) note.hitEffect = false; } note.y += 2; }); requestAnimationFrame(draw); }
+        // キー判定 
+        document.addEventListener("keydown", (e) => { notes.forEach(note => { if (!note.hit && Math.abs(note.y + 25 - 550) < 30) { const keyIndex = keys.indexOf(e.key); if (keyIndex === note.lane) { note.hit = true; note.hitEffect = true; note.hitEffectAlpha = 1; score += 100; scoreDisplay.textContent = score; } } }); });
+        // ゲーム開始 
+        function startGame() {
+            const song = document.getElementById("songSelect").value; bgm.src = songFiles[song]; bgm.currentTime = 0; bgm.play().catch(() => alert("ブラウザで音声再生がブロックされました。ボタンを押してください。")); generateNotes(songs[song].bpm);
+            score = 0; scoreDisplay.textContent = score; draw();
+        } </script>
+</body>
+
+</html>

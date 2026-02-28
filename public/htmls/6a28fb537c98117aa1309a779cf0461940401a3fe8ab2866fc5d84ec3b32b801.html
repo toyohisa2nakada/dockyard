@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>オシザム - Leo Edition</title>
+    <style>
+        :root {
+            --primary-color: #ff9800;
+            --bg-color: #fff3e0;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        #app {
+            text-align: center;
+            background: white;
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            width: 90%;
+            max-width: 400px;
+        }
+
+        .character-img {
+            font-size: 80px;
+            margin-bottom: 20px;
+            display: block;
+        }
+
+        .message {
+            font-weight: bold;
+            color: #333;
+            min-height: 50px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.2rem;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: transform 0.2s, background-color 0.2s;
+            font-weight: bold;
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        /* テンションが上がるアニメーション */
+        @keyframes bounce {
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-20px);
+            }
+        }
+
+        .animate-bounce {
+            animation: bounce 0.5s infinite;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+        <div id="status-screen"> <span class="character-img">☀️</span>
+            <h2>おはよう！設定中...</h2>
+            <p>テスト用に「今すぐ鳴らす」を押してみて！</p> <button onclick="triggerAlarm()">今すぐアラーム起動！</button>
+        </div>
+        <div id="alarm-screen" class="hidden"> <span class="character-img animate-bounce">📢</span>
+            <h1 style="color: red;">起きろーーー！！</h1>
+            <button onclick="oshiSpeech()" style="background-color: #f44336;">起きたよボタン</button>
+        </div>
+        <div id="reward-screen" class="hidden"> <span id="leo-face" class="character-img">🔥</span>
+            <div id="leo-message" class="message"></div> <button onclick="resetApp()">明日も頑張る！</button>
+        </div>
+    </div>
+    <script>
+        const messages = ["よっしゃ！起きたな！その意気だぜ。今日のお前は、世界で一番輝いてる！", "おはよう！お前が起きるのを待ってたぜ。さあ、最高の1日にしようぜ！", "おっ、いい目覚めじゃねえか！朝飯しっかり食って、ブチかましていこうぜ！"];
+        function triggerAlarm() {
+            document.getElementById('status-screen').classList.add('hidden'); document.getElementById('alarm-screen').classList.remove('hidden');
+            // 本来はここでアラーム音をループ再生 
+        }
+        function oshiSpeech() {
+            const msg = messages[Math.floor(Math.random() * messages.length)];
+            document.getElementById('alarm-screen').classList.add('hidden');
+            document.getElementById('reward-screen').classList.remove('hidden');
+            document.getElementById('leo-message').innerText = msg;
+            // ブラウザの音声合成機能(Web Speech API)を使用 
+            const uttr = new SpeechSynthesisUtterance(msg); uttr.lang = 'ja-JP'; uttr.rate = 1.2;
+            // 少し早口で元気よく 
+            uttr.pitch = 1.2;
+            // 少し高めの声 
+            window.speechSynthesis.speak(uttr);
+        } function resetApp() { location.reload(); } 
+    </script>
+</body>
+
+</html>

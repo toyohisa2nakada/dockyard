@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <title>人生ゲーム｜UI完全共存版</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: "Noto Sans JP", sans-serif;
+            background: linear-gradient(#fff8dc, #f3c969);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            margin: 10px
+        }
+
+        /* ===== ボード ===== */
+        .board-scroll {
+            width: 100%;
+            overflow-x: auto;
+            padding: 10px 0;
+        }
+
+        .board-wrap {
+            background: #d8a84e;
+            padding: 20px;
+            border-radius: 24px;
+            box-shadow: inset 0 0 0 6px #fff, 0 10px 30px rgba(0, 0, 0, .3);
+            width: max-content;
+        }
+
+        .board {
+            display: grid;
+            grid-template-columns: repeat(40, 70px);
+            gap: 6px;
+        }
+
+        .cell {
+            width: 70px;
+            height: 70px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            color: #fff;
+            font-weight: bold;
+        }
+
+        .cell::after {
+            content: attr(data-num);
+            position: absolute;
+            top: 4px;
+            right: 6px;
+            font-size: 11px;
+        }
+
+        .start {
+            background: #2ecc71;
+        }
+
+        .goal {
+            background: #f39c12;
+        }
+
+        .study {
+            background: #9b59b6;
+        }
+
+        .job {
+            background: #3498db;
+        }
+
+        .salary {
+            background: #1abc9c;
+        }
+
+        .marriage {
+            background: #fd79a8;
+        }
+
+        .child {
+            background: #e67e22;
+        }
+
+        .house {
+            background: #8e5a2a;
+        }
+
+        .accident {
+            background: #e74c3c;
+        }
+
+        /* ===== プレイヤー ===== */
+        .player {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            border: 3px solid #fff;
+            position: absolute;
+            top: -32px;
+        }
+
+        .p1 {
+            background: #2980b9;
+        }
+
+        .p2 {
+            background: #c0392b;
+        }
+
+        /* ===== UI ===== */
+        .ui {
+            margin: 15px;
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+        }
+
+        button {
+            padding: 12px 18px;
+            border: none;
+            border-radius: 10px;
+            background: #0078ff;
+            color: #fff;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        /* ===== サイコロ ===== */
+        .dice-scene {
+            width: 70px;
+            height: 70px;
+            perspective: 600px;
+        }
+
+        .dice {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: 1s;
+        }
+
+        .face {
+            position: absolute;
+            width: 70px;
+            height: 70px;
+            background: #fff;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .front {
+            transform: translateZ(35px);
+        }
+
+        .back {
+            transform: rotateY(180deg) translateZ(35px);
+        }
+
+        .right {
+            transform: rotateY(90deg) translateZ(35px);
+        }
+
+        .left {
+            transform: rotateY(-90deg) translateZ(35px);
+        }
+
+        .top {
+            transform: rotateX(90deg) translateZ(35px);
+        }
+
+        .bottom {
+            transform: rotateX(-90deg) translateZ(35px);
+        }
+
+        /* ===== ステータス ===== */
+        .status {
+            background: #fff;
+            padding: 12px;
+            border-radius: 12px;
+            min-width: 200px;
+        }
+
+        .status h3 {
+            margin: 4px 0;
+        }
+
+        .status div {
+            font-size: 14px
+        }
+
+        /* ===== イベント表示 ===== */
+        .popup {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, .6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: .4s;
+        }
+
+        .popup.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .popup-card {
+            background: #fff;
+            padding: 20px 30px;
+            border-radius: 20px;
+            text-align: center;
+        }
+
+        .popup-card img {
+            width: 80px;
+            height: 80px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🎲 人生ゲーム</h1>
+    <div class="board-scroll">
+        <div class="board-wrap">
+            <div class="board" id="board"></div>
+        </div>
+    </div>
+    <div class="ui">
+        <button id="diceBtn">🎲 サイコロ（P1）</button>
+        <div class="dice-scene">
+            <div class="dice" id="dice">
+                <div class="face front">1</div>
+                <div class="face back">6</div>
+                <div class="face right">3</div>
+                <div class="face left">4</div>
+                <div class="face top">5</div>
+                <div class="face bottom">2</div>
+            </div>
+        </div>
+        <div class="status" id="status"></div>
+    </div>
+    <div class="popup" id="popup">
+        <div class="popup-card">
+            <img id="eventImg">
+            <div id="eventText"></div>
+        </div>
+    </div>
+    <script>
+        const events = [
+            "start", "study", "job", "salary", "marriage",
+            "child", "salary", "house", "accident", "salary"
+        ];
+        const eventImages = {
+            study: "https://cdn-icons-png.flaticon.com/512/3135/3135768.png",
+            job: "https://cdn-icons-png.flaticon.com/512/3135/3135706.png",
+            salary: "https://cdn-icons-png.flaticon.com/512/607/607489.png",
+            marriage: "https://cdn-icons-png.flaticon.com/512/1077/1077114.png",
+            child: "https://cdn-icons-png.flaticon.com/512/201/201623.png",
+            house: "https://cdn-icons-png.flaticon.com/512/619/619034.png",
+            accident: "https://cdn-icons-png.flaticon.com/512/3563/3563622.png"
+        };
+        const players = [
+            { id: 1, pos: 0, money: 10000, job: "無職", married: false, children: 0, house: false, el: null },
+            { id: 2, pos: 0, money: 10000, job: "無職", married: false, children: 0, house: false, el: null }
+        ];
+        let turn = 0;
+        const board = document.getElementById("board");
+        const cells = [];
+        for (let i = 0; i < 40; i++) {
+            const type = i === 0 ? "start" : i === 39 ? "goal" : events[i % events.length];
+            const c = document.createElement("div");
+            c.className = "cell " + type;
+            c.dataset.num = i + 1;
+            board.appendChild(c);
+            cells.push(c);
+        }
+        players.forEach((p, i) => {
+            const d = document.createElement("div");
+            d.className = "player p" + p.id;
+            d.style.left = i * 28 + "px";
+            cells[0].appendChild(d);
+            p.el = d;
+        });
+        const status = document.getElementById("status");
+        function renderStatus() {
+            const p = players[turn];
+            status.innerHTML = `
+<h3>P${p.id}</h3>
+<div>💰 ${p.money}円</div>
+<div>💼 ${p.job}</div>
+<div>💍 ${p.married ? "既婚" : "独身"}</div>
+<div>👶 ${p.children}人</div>
+<div>🏠 ${p.house ? "あり" : "なし"}</div>
+`;
+        }
+        renderStatus();
+        const dice = document.getElementById("dice");
+        const popup = document.getElementById("popup");
+        const eventImg = document.getElementById("eventImg");
+        const eventText = document.getElementById("eventText");
+        const diceRot = {
+            1: "rotateX(0deg)",
+            2: "rotateX(90deg)",
+            3: "rotateY(-90deg)",
+            4: "rotateY(90deg)",
+            5: "rotateX(-90deg)",
+            6: "rotateY(180deg)"
+        };
+        function showEvent(text, type) {
+            eventText.textContent = text;
+            eventImg.src = eventImages[type] || "";
+            popup.classList.add("show");
+            setTimeout(() => popup.classList.remove("show"), 1500);
+        }
+        document.getElementById("diceBtn").onclick = () => {
+            const p = players[turn];
+            dice.style.transform = `rotateX(${Math.random() * 720}deg) rotateY(${Math.random() * 720}deg)`;
+            setTimeout(() => {
+                const roll = Math.floor(Math.random() * 6) + 1;
+                dice.style.transform = diceRot[roll];
+                let s = 0;
+                const mv = setInterval(() => {
+                    if (s < roll && p.pos < 39) {
+                        p.pos++;
+                        cells[p.pos].appendChild(p.el);
+                        s++;
+                    } else {
+                        clearInterval(mv);
+                        const ev = events[p.pos % events.length];
+                        if (ev === "study") { p.money -= 4000; showEvent("🎓 大学進学", "study"); }
+                        if (ev === "job") { p.job = "会社員"; showEvent("💼 就職", "job"); }
+                        if (ev === "salary") { p.money += 3000; showEvent("💰 給料日", "salary"); }
+                        if (ev === "marriage") { p.married = true; showEvent("💍 結婚", "marriage"); }
+                        if (ev === "child") { p.children++; showEvent("👶 子供誕生", "child"); }
+                        if (ev === "house") { p.house = true; p.money -= 5000; showEvent("🏠 家購入", "house"); }
+                        if (ev === "accident") { p.money -= 3000; showEvent("💀 事故", "accident"); }
+                        turn = (turn + 1) % players.length;
+                        document.getElementById("diceBtn").textContent = `🎲 サイコロ（P${players[turn].id})`;
+                        renderStatus();
+                    }
+                }, 300);
+            }, 800);
+        };
+    </script>
+</body>
+
+</html>

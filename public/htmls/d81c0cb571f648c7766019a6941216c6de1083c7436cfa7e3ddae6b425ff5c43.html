@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="ja">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>忘れ物防止チェック（プロトタイプ）</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+            margin: 16px;
+            lineheight:
+                1.4
+        }
+
+        h1 {
+            font-size: 18px;
+            margin: 0 0 12px
+        }
+
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+            flex-wrap: wrap
+        }
+
+        .tab {
+            padding: 8px 10px;
+            border: 1px solid #ccc;
+            borderradius:
+                10px;
+            background: #f7f7f7;
+            cursor: pointer
+        }
+
+        .tab.active {
+            background: #111;
+            color: #fff;
+            border-color: #111
+        }
+
+        .row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin: 8px 0
+        }
+
+        input,
+        select,
+        button {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 10px
+        }
+
+        button {
+            cursor: pointer;
+            background: #111;
+            color: #fff;
+            border-color: #111
+        }
+
+        button.secondary {
+            background: #fff;
+            color: #111
+        }
+
+        .card {
+            border: 1px solid #ddd;
+            border-radius: 12px;
+            padding: 12px;
+            margin: 10px 0
+        }
+
+        .muted {
+            color: #666;
+            font-size: 12px
+        }
+
+        .list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-top: 8px
+        }
+
+        .item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            justify-content: space-between;
+            border: 1px solid #eee;
+            border-radius: 10px;
+            padding: 8px
+        }
+
+        .left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 0
+        }
+
+        .name {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 55vw
+        }
+
+        .req {
+            font-size: 12px;
+            color: #c00;
+            border: 1px solid #f2c0c0;
+            background: #fff5f5;
+            padding: 2px 6px;
+            border-radius: 999px
+        }
+
+        .ok {
+            color: #0a0
+        }
+
+        .danger {
+            color: #c00
+        }
+    </style>
+</head>
+
+<body>
+    <h1>忘れ物防止チェック（テンプレ型）</h1>
+    <div class="tabs">
+        <div class="tab active" data-view="templates">テンプレート</div>
+        <div class="tab" data-view="today">今日のチェック</div>
+    </div>
+    <!-- Templates View -->
+    <div id="view-templates">
+        <div class="card">
+            <div class="muted">テンプレ（例：大学 / バイト / ジム）を作って、持ち物を登
+                録します。</div>
+            <div class="row">
+                <input id="tplName" placeholder="新しいテンプレ名（例：大学）" />
+                <button id="addTpl">テンプレ作成</button>
+            </div>
+        </div>
+        <div class="card">
+            <div class="row">
+                <select id="tplSelect"></select>
+                <button id="delTpl" class="secondary">選択テンプレ削除</button>
+            </div>
+            <div class="row">
+                <input id="itemName" placeholder="持ち物（例：学生証）" />
+                <label style="display:flex;align-items:center;gap:6px;">
+                    <input type="checkbox" id="itemReq" />
+                    必須
+                </label>
+                <button id="addItem">追加</button>
+            </div>
+            <div class="list" id="itemsList"></div>
+        </div>
+    </div>
+    <!-- Today View -->
+    <div id="view-today" style="display:none;">
+        <div class="card">
+            <div class="muted">テンプレから「今日のチェックリスト」を生成してチェックし
+                ます（保存されます）。</div>
+            <div class="row">
+                <select id="todayTplSelect"></select>
+                <button id="makeToday">今日のリスト生成</button>
+                <button id="clearToday" class="secondary">今日をクリア</button>
+            </div>
+            <div class="muted">日付：<span id="todayDate"></span></div>
+        </div>
+        <div class="card">
+            <div class="row" style="justify-content:space-between;">
+                <div>
+                    進捗：<span id="progress"></span>
+                    <span id="warn" class="muted"></span>
+                </div>
+                <button id="saveToday">保存</button>
+            </div>
+            <div class="list" id="todayList"></div>
+        </div>
+    </div>
+    <script>
+        // ====== State / Storage ======
+        const KEY = "wasurenai_v1";
+        const uid = () => Math.random().toString(16).slice(2) + Date.now().toString(16);
+        const todayStr = () => new Date().toISOString().slice(0, 10);
+        function load() {
+            try {
+                const raw = localStorage.getItem(KEY);
+                if (!raw) return { templates: [], today: null };
+                const s = JSON.parse(raw);
+                return { templates: s.templates || [], today: s.today || null };
+            } catch (e) {
+                return { templates: [], today: null };
+            }
+        }
+        function save() { localStorage.setItem(KEY, JSON.stringify(state)); }
+        let state = load();
+        // ====== DOM ======
+        const $ = (id) => document.getElementById(id);
+        // Tabs
+        document.querySelectorAll(".tab").forEach(t => {
+            t.addEventListener("click", () => {
+                document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
+                t.classList.add("active");
+                const v = t.dataset.view;
+                $("view-templates").style.display = (v === "templates") ? "" : "none";
+                $("view-today").style.display = (v === "today") ? "" : "none";
+                renderAll();
+            });
+        });
+        // ====== Helpers ======
+        function currentTplId() { return $("tplSelect").value || ""; }
+        function currentTpl() {
+            return state.templates.find(t => t.id === currentTplId()) ||
+                null;
+        }
+        function ensureDemo() {
+            if (state.templates.length) return;
+            const t = {
+                id: uid(), name: "大学", items: [
+                    { id: uid(), name: "学生証", required: true },
+                    { id: uid(), name: "財布", required: true },
+                    { id: uid(), name: "充電器", required: false }
+                ]
+            };
+            state.templates.push(t);
+            save();
+        }
+        // ====== Template Actions ======
+        $("addTpl").addEventListener("click", () => {
+            const name = $("tplName").value.trim();
+            if (!name) return alert("テンプレ名を入力してね");
+            state.templates.push({ id: uid(), name, items: [] });
+            $("tplName").value = "";
+            save();
+            renderAll(true);
+        });
+        $("delTpl").addEventListener("click", () => {
+            const id = currentTplId();
+            if (!id) return;
+            const tpl = currentTpl();
+            if (!confirm(`「${tpl.name}」を削除しますか？`)) return;
+            state.templates = state.templates.filter(t => t.id !== id);
+            // 今日のリストがこのテンプレならクリア
+            if (state.today && state.today.templateId === id) state.today = null;
+            save();
+            renderAll(true);
+        });
+        $("addItem").addEventListener("click", () => {
+            const tpl = currentTpl();
+            if (!tpl) return alert("先にテンプレを選んでね");
+            const name = $("itemName").value.trim();
+            if (!name) return alert("持ち物名を入力してね");
+            tpl.items.push({ id: uid(), name, required: $("itemReq").checked });
+            $("itemName").value = "";
+            $("itemReq").checked = false;
+            save();
+            renderAll();
+        });
+        // ====== Today Actions ======
+        $("makeToday").addEventListener("click", () => {
+            const tplId = $("todayTplSelect").value;
+            const tpl = state.templates.find(t => t.id === tplId);
+            if (!tpl) return alert("テンプレを選んでね");
+            const d = todayStr();
+            state.today = {
+                id: uid(),
+                date: d,
+                templateId: tpl.id,
+                items: tpl.items.map(it => ({
+                    id: it.id, name: it.name, required: !!it.required,
+                    checked: false
+                }))
+            };
+            save();
+            renderAll();
+        });
+        $("clearToday").addEventListener("click", () => {
+            state.today = null;
+            save();
+            renderAll();
+        });
+        $("saveToday").addEventListener("click", () => {
+            if (!state.today) return alert("今日のリストがないよ。生成してね");
+            save();
+            alert("保存しました（localStorage）");
+        });
+        // ====== Render ======
+        function renderTplSelects(keepSelection = false) {
+            const prev = $("tplSelect").value;
+            const prev2 = $("todayTplSelect").value;
+            const opts = state.templates.map(t => `<option
+value="${t.id}">${escapeHtml(t.name)}</option>`).join("");
+            $("tplSelect").innerHTML = opts || `<option value="">（テンプレなし）
+</option>`;
+            $("todayTplSelect").innerHTML = opts || `<option value="">（テンプレなし）
+</option>`;
+            if (keepSelection && prev) $("tplSelect").value = prev;
+            if (keepSelection && prev2) $("todayTplSelect").value = prev2;
+            // 何も選ばれてなければ先頭を選択
+            if (!$("tplSelect").value && state.templates[0]) $("tplSelect").value =
+                state.templates[0].id;
+            if (!$("todayTplSelect").value && state.templates[0]) $("todayTplSelect").value =
+                state.templates[0].id;
+        }
+        function renderItems() {
+            const tpl = currentTpl();
+            const box = $("itemsList");
+            if (!tpl) {
+                box.innerHTML = `<div class="muted">テンプレを作成してください。
+</div>`; return;
+            }
+            if (!tpl.items.length) {
+                box.innerHTML = `<div class="muted">持ち物を追加してく
+ださい。</div>`; return;
+            }
+            box.innerHTML = tpl.items.map(it => `
+<div class="item">
+<div class="left">
+<div class="name">${escapeHtml(it.name)}</div>
+${it.required ? `<span class="req">必須</span>` : ``}
+</div>
+<button class="secondary" data-del-item="${it.id}">削除</button>
+</div>
+`).join("");
+            box.querySelectorAll("[data-del-item]").forEach(btn => {
+                btn.addEventListener("click", () => {
+                    const id = btn.getAttribute("data-del-item");
+                    tpl.items = tpl.items.filter(x => x.id !== id);
+                    // 今日のリストにも反映（同じitem id なら削除）
+                    if (state.today && state.today.templateId === tpl.id) {
+                        state.today.items = state.today.items.filter(x => x.id !== id);
+                    }
+                    save();
+                    renderAll();
+                });
+            });
+        }
+        function renderToday() {
+            $("todayDate").textContent = todayStr();
+            const list = $("todayList");
+            const p = $("progress");
+            const warn = $("warn");
+            if (!state.today || state.today.date !== todayStr()) {
+                // 日付が変わっていたら表示上は「未生成」にする（データは残す）
+                list.innerHTML = `<div class="muted">今日のリストは未生成です。上で生成してください。</div>`;
+                p.textContent = "-";
+                warn.textContent = state.today ? "（保存済みのリストは日付が違うため非表示）" : "";
+                return;
+            }
+            if (!state.today.items.length) {
+                list.innerHTML = `<div class="muted">持ち物がありません（テンプレに追加してください）。</div>`;
+                p.textContent = "0/0";
+                warn.textContent = "";
+                return;
+            }
+            list.innerHTML = state.today.items.map(it => `
+<label class="item" style="cursor:pointer;">
+<div class="left">
+<input type="checkbox" ${it.checked ? "checked" : ""} data-check="${it.id}"
+/>
+<div class="name">${escapeHtml(it.name)}</div>
+${it.required ? `<span class="req">必須</span>` : ``}
+</div>
+<span class="${it.checked ? "ok" : (it.required ? "danger" : "muted")}">
+${it.checked ? "OK" : (it.required ? "未" : "任意")}
+</span>
+</label>
+`).join("");
+            list.querySelectorAll("[data-check]").forEach(cb => {
+                cb.addEventListener("change", () => {
+                    const id = cb.getAttribute("data-check");
+                    const item = state.today.items.find(x => x.id === id);
+                    if (item) item.checked = cb.checked;
+                    save();
+                    renderProgress();
+                    renderRequiredWarning();
+                });
+            });
+            renderProgress();
+            renderRequiredWarning();
+            function renderProgress() {
+                const done = state.today.items.filter(x => x.checked).length;
+                p.textContent = `${done}/${state.today.items.length}`;
+            }
+            function renderRequiredWarning() {
+                const miss = state.today.items.filter(x => x.required && !x.checked).length;
+                warn.textContent = miss ? `（必須が${miss}個未チェック）` : "（必須OK）";
+            }
+        }
+        function renderAll(keepSelection = false) {
+            renderTplSelects(keepSelection);
+            renderItems();
+            renderToday();
+        }
+        function escapeHtml(s) {
+            return String(s).replace(/[&<>"']/g, c =>
+                ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+        // init
+        ensureDemo();
+        renderAll();
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Pet (Responsive)</title>
+    <link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --shell-color: #7c3aed;
+            --shell-shadow: #5b21b6;
+            --screen-bg-day: #fef3c7;
+            /* Cream Wall */
+            --screen-bg-night: #312e81;
+            /* Dark Wall */
+            --pixel-color: #1e293b;
+            --btn-color: #f43f5e;
+            --btn-shadow: #9f1239;
+        }
+
+        body {
+            background-color: #1a1a1a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: 'DotGothic16', sans-serif;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        .device {
+            width: 340px;
+            height: 520px;
+            background-color: var(--shell-color);
+            border-radius: 60px 60px 50px 50px;
+            position: relative;
+            box-shadow:
+                inset -10px -10px 0px rgba(0, 0, 0, 0.2),
+                0px 10px 20px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 40px;
+            border: 6px solid rgba(255, 255, 255, 0.2);
+            /* スケーリングの基準点を中心に設定 */
+            transform-origin: center center;
+        }
+
+        .screen-lens {
+            width: 240px;
+            height: 200px;
+            background-color: #334155;
+            border-radius: 20px 20px 40px 20px;
+            padding: 20px;
+            box-shadow: inset 2px 2px 5px rgba(0, 0, 0, 0.5);
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .screen {
+            width: 192px;
+            height: 192px;
+            background-color: var(--screen-bg-day);
+            border: 4px solid #0f172a;
+            image-rendering: pixelated;
+            position: relative;
+            overflow: hidden;
+            box-shadow: inset 2px 2px 5px rgba(0, 0, 0, 0.1);
+            transition: background-color 1s;
+        }
+
+        .screen.night {
+            background-color: var(--screen-bg-night);
+        }
+
+        #gameCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .ui-overlay {
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            right: 5px;
+            font-size: 14px;
+            font-weight: bold;
+            color: #334155;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            pointer-events: none;
+            text-shadow: 1px 1px 0 rgba(255, 255, 255, 0.5);
+            padding: 0 4px;
+            z-index: 10;
+        }
+
+        .screen.night .ui-overlay {
+            color: #94a3b8;
+            text-shadow: none;
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+        }
+
+        .message-box {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            text-align: center;
+            font-size: 12px;
+            font-weight: bold;
+            color: #1e293b;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 4px;
+            padding: 6px;
+            display: none;
+            border: 2px solid #1e293b;
+            z-index: 20;
+            white-space: pre-line;
+            /* Allow newlines */
+            line-height: 1.4;
+        }
+
+        /* Ending Message Style */
+        .message-box.ending {
+            bottom: 20px;
+            border: 4px double #1e293b;
+            background: #fffbeb;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px 15px;
+            width: 260px;
+            justify-items: center;
+        }
+
+        .btn-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .btn {
+            width: 50px;
+            height: 50px;
+            background-color: var(--btn-color);
+            border-radius: 50%;
+            border: none;
+            box-shadow: 0 5px 0 var(--btn-shadow);
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 20px;
+            transition: transform 0.1s;
+        }
+
+        .btn:active {
+            box-shadow: 0 0 0 var(--btn-shadow);
+            transform: translateY(5px);
+        }
+
+        .btn.janken-btn {
+            background-color: #facc15;
+            border: 2px solid #fff;
+        }
+
+        .btn-label {
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        .reset-btn {
+            position: absolute;
+            top: 20px;
+            right: 25px;
+            width: 14px;
+            height: 14px;
+            background: #cbd5e1;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.5);
+            z-index: 100;
+            transition: background 0.2s;
+        }
+
+        .reset-btn:hover {
+            background: #f8fafc;
+        }
+
+        .save-indicator {
+            position: absolute;
+            bottom: 5px;
+            right: 5px;
+            font-size: 10px;
+            color: #334155;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+
+        .scanlines {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(to bottom,
+                    rgba(0, 0, 0, 0),
+                    rgba(0, 0, 0, 0.05) 50%);
+            background-size: 100% 3px;
+            pointer-events: none;
+            z-index: 5;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="device">
+        <div class="reset-btn" onclick="game.hardReset()" title="Full Reset"></div>
+
+        <div class="screen-lens">
+            <div id="screen" class="screen">
+                <canvas id="gameCanvas" width="64" height="64"></canvas>
+                <div class="scanlines"></div>
+
+                <div class="ui-overlay">
+                    <span id="hunger-meter" class="stat-item">🍖100</span>
+                    <span id="age-meter" class="stat-item">0ヶ月</span>
+                    <span id="happy-meter" class="stat-item">💖100</span>
+                </div>
+
+                <div id="message-area" class="message-box"></div>
+                <div id="save-icon" class="save-indicator">💾</div>
+            </div>
+        </div>
+
+        <div class="controls" id="normal-controls">
+            <!-- Row 1 -->
+            <div class="btn-group">
+                <button class="btn" onclick="game.feed()">🍖</button>
+                <span class="btn-label">EAT</span>
+            </div>
+            <div class="btn-group">
+                <button class="btn" onclick="game.drink()">🥤</button>
+                <span class="btn-label">DRINK</span>
+            </div>
+            <div class="btn-group">
+                <button class="btn" onclick="game.clean()">✨</button>
+                <span class="btn-label">CLEAN</span>
+            </div>
+
+            <!-- Row 2 -->
+            <div class="btn-group">
+                <button class="btn" onclick="game.pet()">✋</button>
+                <span class="btn-label">PET</span>
+            </div>
+            <div class="btn-group">
+                <button class="btn" onclick="game.startJanken()">✊</button>
+                <span class="btn-label">GAME</span>
+            </div>
+            <div class="btn-group">
+                <button class="btn" onclick="game.dance()">🎵</button>
+                <span class="btn-label">DANCE</span>
+            </div>
+        </div>
+
+        <!-- Janken Controls -->
+        <div class="controls" id="janken-controls" style="display: none;">
+            <div class="btn-group">
+                <button class="btn janken-btn" onclick="game.playJanken('rock')">✊</button>
+                <span class="btn-label">GUU</span>
+            </div>
+            <div class="btn-group">
+                <button class="btn janken-btn" onclick="game.playJanken('scissors')">✌️</button>
+                <span class="btn-label">CHOKI</span>
+            </div>
+            <div class="btn-group">
+                <button class="btn janken-btn" onclick="game.playJanken('paper')">✋</button>
+                <span class="btn-label">PAR</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const screenEl = document.getElementById('screen');
+        const hungerEl = document.getElementById('hunger-meter');
+        const happyEl = document.getElementById('happy-meter');
+        const ageEl = document.getElementById('age-meter');
+        const msgEl = document.getElementById('message-area');
+        const saveIcon = document.getElementById('save-icon');
+        const normalControls = document.getElementById('normal-controls');
+        const jankenControls = document.getElementById('janken-controls');
+
+        const SAVE_KEY = 'ai_pet_memories_v6';
+
+        // --- Color Palette ---
+        const PALETTE = {
+            '.': null, '#': '#1e293b', 'W': '#ffffff',
+            'P': '#f472b6', 'Y': '#facc15', 'O': '#fb923c',
+            'B': '#60a5fa', 'D': '#78350f', 'L': '#a95f26',
+            'G': '#94a3b8', 'N': '#22c55e', 'R': '#ef4444',
+            'Z': '#cbd5e1', 'M': '#9ca3af', // Metal/Grey
+            'F': '#b45309', // Floor Wood
+            'T': '#78350f', // Tree Trunk
+            'E': '#15803d', // Plant Green
+            'S': '#87ceeb', // Sky Day
+            'K': '#1e1b4b'  // Sky Night
+        };
+        // Map helpers
+        PALETTE['<'] = PALETTE['#']; PALETTE['>'] = PALETTE['#']; PALETTE['_'] = PALETTE['#'];
+
+        // --- Sprites ---
+        const Sprites = {
+            egg: ["........................", "........................", ".........#######........", ".......##WWWWWWW##......", "......#WWWWWWWWWWW#.....", ".....#WWPWWWWWWWWWW#....", ".....#WWWWWWWWWWWWW#....", "....#WWWWWWWWWWPWWWW#...", "....#WWWWWWWWWWWWWWWW#..", "....#WWPWWWWWWWWWWWWW#..", "....#WWWWWWWWWWWWWWWW#..", "....#WWWWWWWWWWPWWWWW#..", "....#WWWWWWWWWWWWWWWW#..", "....#WWWWWWWWWWWWWWWW#..", ".....#WWPWWWWWWWWWW#....", ".....#WWWWWWWWWWWWW#....", "......#WWWWWWWWWWW#.....", ".......##WWWWWWW##......", ".........#######........", "........................", "........................", "........................", "........................", "........................"],
+            baby_idle: ["........................", "........................", "........................", "........................", ".........#######........", ".......##WWWWWWW##......", "......#WWWWWWWWWWW#.....", ".....#WWWWWWWWWWWWW#....", ".....#WWWWWWWWWWWWW#....", "....#WWWWWWWWWWWWWWWW#..", "....#WW#WWWWWWWWWW#WW#..", "....#WW#WWWWWWWWWW#WW#..", "....#WWWWWWWWWWWWWWWW#..", "....#PWWWWWWWWWWWWWWP#..", ".....#PWWWWWWWWWWWWP#...", ".....#WWWWWWWWWWWWW#....", "......#WWWWWWWWWWW#.....", ".......###########......", ".......#WW#...#WW#......", ".......####...####......", "........................", "........................", "........................", "........................"],
+            baby_happy: ["........................", "........................", "........................", ".....###.........###....", "....#WWW#.......#WWW#...", "....#WWW#.......#WWW#...", ".....#WWW#.....#WWW#....", "......#WWW#####WWW#.....", ".....#WWWWWWWWWWWWW#....", "....#WWWWWWWWWWWWWWWW#..", "....#WW>WWWWWWWWWW<WW#..", "....#WWWWWWWWWWWWWWWW#..", "....#WWWWWWWWWWWWWWWW#..", "....#PWWWWWWWWWWWWWWP#..", ".....#PWWWWWWWWWWWWP#...", ".....#WWWWWW__WWWWW#....", "......#WWWWWWWWWWW#.....", ".......###########......", ".......#WW#...#WW#......", ".......####...####......", "........................", "........................", "........................", "........................"],
+            baby_sleep: ["........................", "........................", ".........ZZ.............", ".......ZZ...............", ".........#######..ZZ....", ".......##WWWWWWW##......", "......#WWWWWWWWWWW#.....", ".....#WWWWWWWWWWWWW#....", ".....#WWWWWWWWWWWWW#....", "....#WWWWWWWWWWWWWWWW#..", "....#WW_WWWWWWWWWW_WW#..", "....#WW_WWWWWWWWWW_WW#..", "....#WWWWWWWWWWWWWWWW#..", "....#PWWWWWWWWWWWWWWP#..", ".....#PWWWWWWWWWWWWP#...", ".....#WWWWWWWWWWWWW#....", "......#WWWWWWWWWWW#.....", ".......###########......", "........................", "........................", "........................", "........................", "........................", "........................"],
+            adult_normal: ["........................", "......###.......###.....", ".....#YYY#.....#YYY#....", "....#YYYYY#...#YYYYY#...", "....#YYYYY#...#YYYYY#...", ".....#YYYY#####YYYY#....", "......#YYYYYYYYYYY#.....", ".....#YYYYYYYYYYYYY#....", "....#YYYYYYYYYYYYYYY#...", "....#YY#YYYYYYYYY#YY#...", "....#YYYYYYYYYYYYYYY#...", "....#YYYYYYYYYYYYYYY#...", "....#PYYYYY__YYYYYYP#...", ".....#PYYYYYYYYYYYP#....", ".....#YYYYYYYYYYYYY#....", "....#YYYYYYYYYYYYYYY#...", "...#YYYYYYYYYYYYYYYYY#..", "...#YYYYYYYYYYYYYYYYY#..", "....#YYYYYYYYYYYYYYY#...", ".....###########YYY#....", ".....#YY#.....#YYY#.....", ".....####......###......", "........................", "........................"],
+            adult_fat: ["........................", "........................", "........................", "........................", "..........######........", "........##PPPPPP##......", ".......#PPPPPPPPPP#.....", "......#PPPPPPPPPPPP#....", ".....#PPPPPPPPPPPPPP#...", "....#PPPPPPPPPPPPPPPP#..", "....#PP#PPPPPPPPPP#PP#..", "...#PPPPPPPPPPPPPPPPPP#.", "...#PPPPPPPPPPPPPPPPPP#.", "...#PPPPPP______PPPPPP#.", "...#PPPPPPPPPPPPPPPPPP#.", "...#PPPPPPPPPPPPPPPPPP#.", "....#PPPPPPPPPPPPPPPP#..", ".....#PPPPPPPPPPPPPP#...", "......#PPPPPPPPPPPP#....", ".......############.....", "........................", "........................", "........................", "........................"],
+            adult_active: ["........................", "........................", ".........#######........", "........#NNNNNNN#.......", ".......#NNNNNNNNN#......", "......#NNNNNNNNNNN#.....", "......#RRRRRRRRRRR#.....", ".....#RRRRRRRRRRRRR#....", ".....#RR#RRRRRRR#RR#....", ".....#NNNNNNNNNNNNN#....", ".....#NNNNNNNNNNNNN#....", "....#NNNNNNNNNNNNNNN#...", "....#NNNNNNNNNNNNNNN#...", "....#NNNNNN__NNNNNNN#...", "....#NNNNNNNNNNNNNNN#...", "....#NNNNNNNNNNNNNNN#...", "...#NNNNNNNNNNNNNNNNN#..", "...#NNNNNNNNNNNNNNNNN#..", "....#NNNNNNNNNNNNNNN#...", ".....##########NNNN#....", ".....#NN#.....#NNN#.....", ".....####......###......", "........................", "........................"],
+            poop: ["........................", "........................", "........................", "........................", "..........#####.........", ".........#DDDDD#........", "........#DDDDDDD#.......", ".......#DDDDDDDDD#......", ".......#DDDD#####.......", "......#DDDDD#...........", "......#DDDDDD#####......", ".....#DDDDDDDDDDDD#.....", ".....#LLDDDDDDDDDD#.....", ".....#LLLLDDDDDDDD#.....", "......#LLLLDDDDDD#......", ".......########DD#......", ".................#......", "........................", "........................", "........................", "........................", "........................", "........................", "........................"],
+            skull: ["........................", "........................", ".........#######........", ".......##GGGGGGG##......", "......#GGGGGGGGGGG#.....", ".....#GGGGGGGGGGGGG#....", ".....#GGGGGGGGGGGGG#....", ".....#GG#GGGGGGG#GG#....", ".....#GG#GGGGGGG#GG#....", ".....#GGGGGGGGGGGGG#....", "......#GGGG###GGGG#.....", ".......#GGG# #GGG#......", ".......#GGG# #GGG#......", "........###...###.......", "........................", "........................", "........................", "........................", "........................", "........................", "........................", "........................", "........................", "........................"],
+            hand_rock: ["..........", "....###...", "...#####..", "..#######.", "..#######.", "..#######.", "...#####..", "....###...", ".........."],
+            hand_scissors: ["...#...#..", "...#...#..", "....#.#...", ".....#....", "....###...", "...#####..", "..#######.", "...#####..", ".........."],
+            hand_paper: ["..........", "..#.#.#...", "..#.#.#...", "..#####...", ".#######..", ".#######..", "..#####...", "..........", ".........."],
+
+            // --- Room Sprites ---
+            window: [
+                "########",
+                "#SSSSSS#",
+                "#SSSSSS#",
+                "#SSSSSS#",
+                "########",
+                "#SSSSSS#",
+                "#SSSSSS#",
+                "#SSSSSS#",
+                "########"
+            ],
+            plant: [
+                "....#...",
+                "...###..",
+                "..#E#E#.",
+                "..EEEEE.",
+                "...#E#..",
+                "....T...",
+                "....T...",
+                "...###..",
+                "..#DDD#.",
+                "..#####."
+            ]
+        };
+
+        class Game {
+            constructor() {
+                this.resetInternal();
+                if (!this.load()) {
+                    this.reset();
+                }
+                this.startLoop();
+            }
+
+            resetInternal() {
+                // Clear timers immediately
+                clearTimeout(this.danceTimer);
+                clearTimeout(this.msgTimeout);
+                clearTimeout(this.jankenTimer);
+
+                this.lastTick = Date.now();
+                this.animFrame = 0;
+                this.posX = 20;
+                this.posY = 36;
+                this.velY = 0;
+                this.isJumping = false;
+                this.isDancing = false;
+
+                // Reset Janken State
+                this.isJankenMode = false;
+                this.jankenState = 'NONE';
+                this.jankenResult = '';
+                this.opponentHand = null;
+
+                // Force Reset UI Controls
+                if (normalControls && jankenControls) {
+                    normalControls.style.display = 'grid';
+                    jankenControls.style.display = 'none';
+                }
+
+                this.danceTimer = null;
+                this.jankenTimer = null;
+                this.isNight = false;
+            }
+
+            // --- Save & Load ---
+            save() {
+                const data = {
+                    state: this.state,
+                    evoType: this.evoType,
+                    age: this.age,
+                    hunger: this.hunger,
+                    happy: this.happy,
+                    poopCount: this.poopCount,
+
+                    // Stats
+                    eatCount: this.eatCount,
+                    playCount: this.playCount,
+                    cleanCount: this.cleanCount,
+                    petCount: this.petCount,
+
+                    lastSaveTime: Date.now()
+                };
+                localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+
+                saveIcon.style.opacity = 1;
+                setTimeout(() => saveIcon.style.opacity = 0, 500);
+            }
+
+            load() {
+                const json = localStorage.getItem(SAVE_KEY);
+                if (!json) return false;
+                try {
+                    const data = JSON.parse(json);
+                    this.state = data.state;
+                    this.evoType = data.evoType || 'NORMAL';
+                    this.age = data.age;
+                    this.hunger = data.hunger;
+                    this.happy = data.happy;
+                    this.poopCount = data.poopCount;
+
+                    this.eatCount = data.eatCount || 0;
+                    this.playCount = data.playCount || 0;
+                    this.cleanCount = data.cleanCount || 0;
+                    this.petCount = data.petCount || 0;
+
+                    const now = Date.now();
+                    const timeDiff = now - (data.lastSaveTime || now);
+                    const ticksPassed = Math.floor(timeDiff / 2000);
+
+                    if (ticksPassed > 0) {
+                        this.simulatePassingTime(ticksPassed);
+                    } else {
+                        this.showMessage("おかえり!");
+                    }
+                    return true;
+                } catch (e) {
+                    return false;
+                }
+            }
+
+            simulatePassingTime(ticks) {
+                if (this.state === 'DEAD' || this.state === 'EGG') return;
+                const cappedTicks = Math.min(ticks, 100);
+                for (let i = 0; i < cappedTicks; i++) {
+                    this.decay(true);
+                    if (this.state === 'DEAD') break;
+                }
+                if (this.state === 'DEAD') {
+                    // Message handled in updateUI
+                } else {
+                    this.showMessage("おかえり!");
+                }
+            }
+
+            hardReset() {
+                if (confirm("データを削除して最初から遊びますか？")) {
+                    localStorage.removeItem(SAVE_KEY);
+                    this.reset();
+                }
+            }
+
+            reset() {
+                this.state = 'EGG';
+                this.evoType = 'NORMAL';
+                this.age = 0;
+                this.hunger = 100;
+                this.happy = 100;
+                this.poopCount = 0;
+
+                // Stats
+                this.eatCount = 0;
+                this.playCount = 0;
+                this.cleanCount = 0;
+                this.petCount = 0;
+
+                this.resetInternal();
+                this.showMessage("Start!");
+                this.save();
+            }
+
+            startLoop() {
+                clearInterval(this.decayTimer);
+                this.decayTimer = setInterval(() => {
+                    this.decay();
+                    this.checkTime();
+                    this.save();
+                }, 2000);
+                this.loop();
+            }
+
+            checkTime() {
+                const hour = new Date().getHours();
+                const isNightNow = (hour >= 21 || hour < 6);
+
+                if (this.isNight !== isNightNow) {
+                    this.isNight = isNightNow;
+                    if (this.isNight) {
+                        screenEl.classList.add('night');
+                        if (this.state !== 'DEAD' && this.state !== 'EGG') this.showMessage("おやすみ...");
+                    } else {
+                        screenEl.classList.remove('night');
+                        if (this.state !== 'DEAD' && this.state !== 'EGG') this.showMessage("おはよう!");
+                    }
+                }
+            }
+
+            decay(silent = false) {
+                if (this.state === 'DEAD' || this.state === 'EGG') return;
+
+                const decayRate = this.isNight ? 0.5 : 2;
+                this.hunger = Math.max(0, this.hunger - decayRate);
+                this.happy = Math.max(0, this.happy - (decayRate * 0.5));
+
+                if (!this.isNight && this.hunger > 0 && Math.random() < 0.1 && this.poopCount < 4) {
+                    this.poopCount++;
+                    this.happy -= 5;
+                    if (!silent) this.showMessage("ウンチした...");
+                }
+
+                this.age++;
+                if (this.state === 'BABY' && this.age > 50) this.evolve(silent);
+
+                if (this.hunger === 0 || this.happy === 0 || this.poopCount >= 4) {
+                    this.state = 'DEAD';
+                    if (!silent) this.showEndingMessage();
+                }
+                if (!silent) this.updateUI();
+            }
+
+            evolve(silent) {
+                this.state = 'ADULT';
+                if (this.playCount > this.eatCount * 1.5) {
+                    this.evoType = 'ACTIVE';
+                    if (!silent) this.showMessage("ニンジャ進化!!");
+                } else if (this.eatCount > this.playCount * 2) {
+                    this.evoType = 'FAT';
+                    if (!silent) this.showMessage("まんまる進化!!");
+                } else {
+                    this.evoType = 'NORMAL';
+                    if (!silent) this.showMessage("進化!!");
+                }
+            }
+
+            checkActionBlock() {
+                if (this.state === 'DEAD') {
+                    if (confirm("新しいペットを育てますか？")) this.reset();
+                    return true;
+                }
+                if (this.state === 'EGG') return true;
+                if (this.isNight) {
+                    this.happy = Math.max(0, this.happy - 5);
+                    this.showMessage("zzz... (不機嫌)");
+                    this.updateUI();
+                    return true;
+                }
+                return false;
+            }
+
+            // --- Actions ---
+            performAction(actionFn) {
+                if (this.checkActionBlock()) return;
+                actionFn();
+                this.save();
+                this.updateUI();
+            }
+
+            feed() {
+                this.performAction(() => {
+                    this.hunger = Math.min(100, this.hunger + 20);
+                    this.eatCount++;
+                    this.jump();
+                    this.showMessage("もぐもぐ...");
+                });
+            }
+
+            drink() {
+                this.performAction(() => {
+                    this.hunger = Math.min(100, this.hunger + 5);
+                    this.happy = Math.min(100, this.happy + 5);
+                    this.eatCount += 0.2;
+                    this.jump();
+                    this.showMessage("ゴクゴク...");
+                });
+            }
+
+            clean() {
+                if (this.state === 'DEAD' || this.state === 'EGG') return;
+                if (this.poopCount > 0) {
+                    this.poopCount = 0;
+                    this.cleanCount++; // Track cleaning
+                    this.happy += 10;
+                    this.showMessage("キレイ✨");
+                    this.save();
+                } else {
+                    this.showMessage("汚れてないよ");
+                }
+                this.updateUI();
+            }
+
+            pet() {
+                this.performAction(() => {
+                    this.happy = Math.min(100, this.happy + 10);
+                    this.petCount++; // Track pets
+                    if (!this.isJumping) { this.velY = -1; this.isJumping = true; }
+                    this.showMessage("なでなで♪");
+                });
+            }
+
+            dance() {
+                this.performAction(() => {
+                    if (this.hunger < 25) {
+                        this.showMessage("疲れちゃった");
+                        return;
+                    }
+                    this.happy = Math.min(100, this.happy + 15);
+                    this.hunger -= 10;
+                    this.playCount += 1.5;
+                    this.showMessage("ダンシング!!");
+                    this.isDancing = true;
+                    clearTimeout(this.danceTimer);
+                    this.danceTimer = setTimeout(() => { this.isDancing = false; }, 2000);
+                });
+            }
+
+            startJanken() {
+                if (this.checkActionBlock()) return;
+                if (this.hunger < 20) {
+                    this.showMessage("お腹すいた...");
+                    return;
+                }
+                this.isJankenMode = true;
+                this.jankenState = 'WAITING';
+                this.showMessage("じゃんけん...");
+                normalControls.style.display = 'none';
+                jankenControls.style.display = 'grid';
+            }
+
+            playJanken(playerChoice) {
+                const hands = ['rock', 'paper', 'scissors'];
+                const cpuChoice = hands[Math.floor(Math.random() * 3)];
+                this.opponentHand = cpuChoice;
+                this.jankenState = 'SHOWDOWN';
+
+                let result = 'DRAW';
+                if (playerChoice === cpuChoice) result = 'DRAW';
+                else if ((playerChoice === 'rock' && cpuChoice === 'scissors') || (playerChoice === 'scissors' && cpuChoice === 'paper') || (playerChoice === 'paper' && cpuChoice === 'rock')) result = 'WIN';
+                else result = 'LOSE';
+
+                if (result === 'WIN') {
+                    this.happy = Math.min(100, this.happy + 25);
+                    this.playCount += 2;
+                    this.showMessage("勝ち! 😆");
+                } else if (result === 'LOSE') {
+                    this.happy = Math.min(100, this.happy + 5);
+                    this.playCount += 1;
+                    this.showMessage("負け... 😭");
+                } else {
+                    this.showMessage("あいこ 😐");
+                }
+                this.hunger -= 5;
+                this.save();
+                this.updateUI();
+
+                // Use jankenTimer to store ID
+                this.jankenTimer = setTimeout(() => {
+                    this.isJankenMode = false;
+                    this.jankenState = 'NONE';
+                    this.opponentHand = null;
+                    normalControls.style.display = 'grid';
+                    jankenControls.style.display = 'none';
+                    this.showMessage("");
+                }, 2000);
+            }
+
+            // --- Message Logic ---
+            showMessage(text) {
+                msgEl.innerText = text;
+                msgEl.className = 'message-box'; // Reset class
+                msgEl.style.display = 'block';
+                clearTimeout(this.msgTimeout);
+                this.msgTimeout = setTimeout(() => {
+                    msgEl.style.display = 'none';
+                }, 2000);
+            }
+
+            showEndingMessage() {
+                let msg = "大好きな ご主人様へ\n";
+                let years = Math.floor(this.age / 50);
+
+                // Priority Logic for Ending Message
+                if (years >= 10) {
+                    msg += "長い長い 時間を\n一緒に 過ごせて\n本当に 幸せだったよ。";
+                } else if (this.petCount > 30) {
+                    msg += "いっぱいの ナデナデ\nうれしかったよ。\nご主人様の手、温かかったなぁ。";
+                } else if (this.cleanCount > 20) {
+                    msg += "いつも お部屋を\nピカピカにしてくれて\n気持ちよかったよ！ ありがとう。";
+                } else if (this.evoType === 'ACTIVE') {
+                    msg += "いっしょに修行して\nとっても楽しかったよ！\nまた遊ぼうね！";
+                } else if (this.evoType === 'FAT') {
+                    msg += "おいしいご飯を\nいっぱい ありがとう。\n幸せだったよ〜";
+                } else if (this.state === 'BABY') {
+                    msg += "もっともっと\n遊びたかったな...";
+                } else {
+                    msg += "いっぱいの愛情を\nありがとう。\nずっと大好きだよ！";
+                }
+
+                msgEl.innerText = msg;
+                msgEl.className = 'message-box ending'; // Special style
+                msgEl.style.display = 'block';
+                // No timeout, stay forever
+                clearTimeout(this.msgTimeout);
+            }
+
+            jump() {
+                if (!this.isJumping && !this.isDancing) {
+                    this.velY = -2;
+                    this.isJumping = true;
+                }
+            }
+
+            updateUI() {
+                hungerEl.style.color = (this.hunger < 30) ? '#e11d48' : '#334155';
+                happyEl.style.color = (this.happy < 30) ? '#e11d48' : '#334155';
+
+                let ageText = "";
+                if (this.state === 'EGG') {
+                    ageText = "卵";
+                } else if (this.age < 50) {
+                    const months = Math.floor((this.age / 50) * 12);
+                    ageText = `${months}ヶ月`;
+                } else {
+                    const years = Math.floor(this.age / 50);
+                    ageText = `${years}歳`;
+                }
+
+                if (this.state === 'DEAD') {
+                    hungerEl.innerText = `🍖0`; happyEl.innerText = `💖0`;
+                    hungerEl.style.color = '#e11d48';
+                    ageEl.innerText = `享年${ageText}`;
+                    ageEl.style.color = '#1e293b';
+
+                    // Show ending if not already shown
+                    if (msgEl.style.display === 'none') {
+                        this.showEndingMessage();
+                    }
+                    return;
+                }
+
+                hungerEl.innerText = `🍖${Math.floor(this.hunger)}`;
+                happyEl.innerText = `💖${Math.floor(this.happy)}`;
+                ageEl.innerText = ageText;
+            }
+
+            // --- Rendering ---
+            drawSprite(sprite, offsetX, offsetY, paletteOverride = null) {
+                if (!sprite) return;
+                for (let y = 0; y < sprite.length; y++) {
+                    const row = sprite[y];
+                    for (let x = 0; x < row.length; x++) {
+                        const char = row[x];
+                        let color = PALETTE[char];
+
+                        // Override window sky color based on time
+                        if (char === 'S') {
+                            color = this.isNight ? PALETTE['K'] : PALETTE['S'];
+                        }
+
+                        if (color) {
+                            ctx.fillStyle = color;
+                            ctx.fillRect(offsetX + x, offsetY + y, 1, 1);
+                        }
+                    }
+                }
+            }
+
+            drawRoom() {
+                // Floor
+                ctx.fillStyle = '#b45309'; // Wood
+                ctx.fillRect(0, 48, 64, 16);
+                // Wall border
+                ctx.fillStyle = '#1e293b';
+                ctx.fillRect(0, 47, 64, 1);
+
+                // Window (Top Left)
+                this.drawSprite(Sprites.window, 8, 10);
+                // Plant (Bottom Right)
+                this.drawSprite(Sprites.plant, 50, 38);
+            }
+
+            render() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                // Draw Room Elements
+                this.drawRoom();
+
+                if (Date.now() - this.lastTick > 500) {
+                    this.animFrame = !this.animFrame;
+                    this.lastTick = Date.now();
+                    if (this.state === 'EGG') {
+                        this.age++;
+                        if (this.age > 3) {
+                            this.state = 'BABY';
+                            this.showMessage("生まれた！");
+                        }
+                    }
+                }
+
+                for (let i = 0; i < this.poopCount; i++) {
+                    const px = (i % 2) * 20 - 5;
+                    const py = 45 + (i > 1 ? 5 : 0); // Adjusted for room perspective
+                    this.drawSprite(Sprites.poop, px, py);
+                }
+
+                let drawX = this.posX;
+                let drawY = this.posY;
+
+                if (this.isDancing) {
+                    drawX += (Date.now() % 200 > 100) ? 2 : -2;
+                    drawY += (Date.now() % 400 > 200) ? -1 : 0;
+                } else if (this.isJumping) {
+                    this.posY += this.velY;
+                    this.velY += 0.5;
+                    if (this.posY >= 36) { // Adjusted floor height
+                        this.posY = 36;
+                        this.isJumping = false;
+                        this.velY = 0;
+                    }
+                    drawY = this.posY;
+                }
+
+                let currentSprite;
+                if (this.state === 'EGG') {
+                    let shake = this.animFrame ? 1 : -1;
+                    this.drawSprite(Sprites.egg, this.posX + shake, this.posY);
+                } else if (this.state === 'DEAD') {
+                    this.drawSprite(Sprites.skull, this.posX, this.posY);
+                    ctx.fillStyle = '#1e293b';
+                    ctx.font = '10px monospace';
+                    ctx.textAlign = 'center';
+                    ctx.fillText("RIP", 32, 30); // Adjusted pos
+                } else {
+                    if (this.isNight) {
+                        this.drawSprite(Sprites.baby_sleep, drawX, drawY);
+                    } else {
+                        if (this.state === 'ADULT') {
+                            if (this.evoType === 'ACTIVE') currentSprite = Sprites.adult_active;
+                            else if (this.evoType === 'FAT') currentSprite = Sprites.adult_fat;
+                            else currentSprite = Sprites.adult_normal;
+                        } else {
+                            currentSprite = (this.isJumping || this.isDancing) ? Sprites.baby_happy : Sprites.baby_idle;
+                        }
+
+                        let bounce = (this.animFrame && !this.isJumping && !this.isDancing) ? 1 : 0;
+                        this.drawSprite(currentSprite, drawX, drawY + bounce);
+                    }
+                }
+
+                if (this.isJankenMode && this.jankenState === 'SHOWDOWN' && this.opponentHand) {
+                    let handSprite = Sprites['hand_' + this.opponentHand];
+                    this.drawSprite(handSprite, 40, 20); // Adjusted pos
+                }
+            }
+
+            loop() {
+                this.render();
+                requestAnimationFrame(() => this.loop());
+            }
+        }
+
+        const game = new Game();
+
+        // --- Responsive Resizer ---
+        function resizeGame() {
+            const device = document.querySelector('.device');
+            const baseWidth = 340;
+            const baseHeight = 520;
+
+            // ユーザー指定の最大幅 (約700px)
+            const maxWidth = 400;
+
+            const availableWidth = window.innerWidth;
+            const availableHeight = window.innerHeight;
+
+            // 幅に合わせてスケール計算 (最大幅700pxまで)
+            // 画面幅か700pxの小さい方を選び、それを基準幅(340px)で割って倍率を出す
+            let scale = Math.min(availableWidth * 0.95, maxWidth) / baseWidth;
+
+            // 高さが画面からはみ出さないように調整
+            if (baseHeight * scale > availableHeight * 0.95) {
+                scale = (availableHeight * 0.95) / baseHeight;
+            }
+
+            // スケール適用
+            device.style.transform = `scale(${scale})`;
+        }
+
+        // イベントリスナー設定
+        window.addEventListener('resize', resizeGame);
+        window.addEventListener('DOMContentLoaded', resizeGame); // loadより早い段階で
+        resizeGame(); // 即時実行
+
+    </script>
+</body>
+
+</html>

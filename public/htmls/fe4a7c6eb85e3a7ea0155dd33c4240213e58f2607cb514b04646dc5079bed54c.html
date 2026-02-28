@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+
+<body>
+    <h3>迷路プロトタイプ（ターン制・難易度評価用）</h3>
+    <p>← ↑ → ↓ キーで操作（1入力＝1ターン）</p>
+    <pre id="screen"></pre>
+    <p id="difficulty"></p>
+
+    <script>
+        // 初期マップ
+        const baseMap = [
+            [1, 1, 1, 1, 1, 1, 1, 1],
+            [1, 0, 0, 0, 1, 0, 0, 1],
+            [1, 0, 1, 0, 1, 0, 1, 1],
+            [1, 0, 1, 0, 0, 0, 0, 1],
+            [1, 0, 0, 0, 1, 1, 0, 1],
+            [1, 1, 1, 0, 0, 0, 0, 1],
+            [1, 1, 1, 1, 1, 1, 1, 1],
+        ];
+
+        let map;
+        let px, py;
+        let ex, ey;
+
+        const MAX_DISTANCE = 14;
+
+        const screen = document.getElementById("screen");
+        const diffView = document.getElementById("difficulty");
+
+        function resetGame() {
+            map = baseMap.map(row => [...row]);
+            px = 1; py = 1;
+            ex = 6; ey = 5;
+            draw();
+            updateDifficulty();
+        }
+
+        function draw() {
+            let out = "";
+            for (let y = 0; y < map.length; y++) {
+                for (let x = 0; x < map[y].length; x++) {
+                    if (x === px && y === py) out += "P";
+                    else if (x === ex && y === ey) out += "E";
+                    else if (map[y][x] === 1) out += "■";
+                    else if (map[y][x] === 0) out += "・";
+                    else out += " ";
+                }
+                out += "\n";
+            }
+            screen.textContent = out;
+        }
+
+        function canMove(x, y) {
+            return map[y][x] !== 1;
+        }
+
+        function distance() {
+            return Math.abs(px - ex) + Math.abs(py - ey);
+        }
+
+        function calcDifficulty() {
+            const pressureScore = MAX_DISTANCE - distance();
+            return Math.max(0, pressureScore);
+        }
+
+        function updateDifficulty() {
+            diffView.textContent = `難易度スコア：${calcDifficulty()}`;
+        }
+
+        function gameOver() {
+            alert("👻 GAME OVER");
+            resetGame();
+        }
+
+        function checkClear() {
+            for (let y = 0; y < map.length; y++) {
+                if (map[y].includes(0)) return;
+            }
+            alert("🎉 クリア！");
+            resetGame();
+        }
+
+        function moveEnemy() {
+            let dx = 0, dy = 0;
+
+            if (Math.abs(px - ex) > Math.abs(py - ey)) {
+                dx = px > ex ? 1 : -1;
+            } else {
+                dy = py > ey ? 1 : -1;
+            }
+
+            const nx = ex + dx;
+            const ny = ey + dy;
+
+            if (canMove(nx, ny)) {
+                ex = nx;
+                ey = ny;
+            }
+        }
+
+        // プレイヤー操作（＝1ターン）
+        document.addEventListener("keydown", e => {
+            let nx = px, ny = py;
+
+            if (e.key === "ArrowUp") ny--;
+            if (e.key === "ArrowDown") ny++;
+            if (e.key === "ArrowLeft") nx--;
+            if (e.key === "ArrowRight") nx++;
+
+            // プレイヤー移動
+            if (canMove(nx, ny)) {
+                px = nx;
+                py = ny;
+                if (map[py][px] === 0) map[py][px] = 2;
+            }
+
+            // 敵も1回動く
+            moveEnemy();
+
+            // 判定
+            if (px === ex && py === ey) {
+                gameOver();
+                return;
+            }
+
+            checkClear();
+            draw();
+            updateDifficulty();
+        });
+
+        resetGame();
+    </script>
+</body>
+
+</html>
