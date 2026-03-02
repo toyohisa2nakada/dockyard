@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <title>俺だけのお金管理（期間集計）</title>
+</head>
+
+<body>
+    <h2>超簡単お金管理</h2>
+    <h3>出費</h3> <button onclick="showExpenseOptions('drink')">飲み物</button> <button
+        onclick="showExpenseOptions('food')">ご飯</button> <button onclick="showExpenseOptions('gamble')">ギャンブル</button>
+    <div id="expenseOptions"></div>
+    <hr>
+    <h3>収入</h3> <button onclick="showIncomeOptions()">収入を追加</button>
+    <div id="incomeOptions"></div>
+    <hr> <button onclick="showSummary(7)">直近1週間を見る</button> <button onclick="showSummary(30)">直近1ヶ月を見る</button>
+    <h3 id="result"></h3>
+    <script>
+        // 日付ごとの記録 
+        let records = {}; function todayKey() { const d = new Date(); return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); } function getTodayRecord() { const key = todayKey(); if (!records[key]) { records[key] = { income: 0, expense: 0, drink: 0, food: 0, gamble: 0 }; } return records[key]; } function clearOptions() { document.getElementById("expenseOptions").innerHTML = ""; document.getElementById("incomeOptions").innerHTML = ""; }
+        function showExpenseOptions(type) { clearOptions(); const area = document.getElementById("expenseOptions"); let values = []; if (type === "drink") values = [100, 200, 300, 400, 500]; if (type === "food") values = [1000, 2000, 3000, 4000, 5000]; if (type === "gamble") values = [10000, 12000, 15000, 18000, 20000]; values.forEach(v => { const btn = document.createElement("button"); btn.textContent = v + "円"; btn.onclick = () => { const r = getTodayRecord(); r.expense += v; r[type] += v; }; area.appendChild(btn); }); } function showIncomeOptions() {
+            clearOptions(); const area = document.getElementById("incomeOptions"); const values = [1000, 2000, 3000, 5000, 10000, 20000, 30000, 50000, 100000, 200000, 300000];
+            values.forEach(v => { const btn = document.createElement("button"); btn.textContent = v + "円"; btn.onclick = () => { const r = getTodayRecord(); r.income += v; }; area.appendChild(btn); });
+        } function showSummary(days) {
+            let income = 0; let expense = 0; let drink = 0; let food = 0; let gamble = 0; const today = new Date(); for (let i = 0; i < days; i++) {
+                const d = new Date(today); d.setDate(today.getDate() - i); const key = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); if (records[key]) {
+                    income += records[key].income; expense += records[key].expense;
+                    drink += records[key].drink; food += records[key].food; gamble += records[key].gamble;
+                }
+            } document.getElementById("result").innerHTML = "【直近" + days + "日】<br>" + "収入: " + income + "円<br>" + "出費: " + expense + "円<br>" + " └ 飲み物: " + drink + "円<br>" + " └ ご飯: " + food + "円<br>" + " └ ギャンブル: " + gamble + "円<br>" + "収支: " + (income - expense) + "円";
+        } </script>
+</body>
+
+</html>

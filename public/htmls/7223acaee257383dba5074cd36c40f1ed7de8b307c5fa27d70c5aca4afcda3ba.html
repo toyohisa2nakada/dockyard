@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>店舗・商品在庫管理</title>
+<!-- React & ReactDOM -->
+<script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<!-- Babel (for JSX) -->
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com"></script>
+<!-- Phosphor Icons -->
+<script src="https://unpkg.com/@phosphor-icons/web"></script>
+<style>
+body {
+font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+background-color: #f3f4f6;
+}
+/* Custom scrollbar for better look */
+::-webkit-scrollbar {
+width: 8px;
+}
+::-webkit-scrollbar-track {
+background: #f1f1f1;
+}
+::-webkit-scrollbar-thumb {
+background: #c1c1c1;
+border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+background: #a8a8a8;
+}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useMemo } = React;
+// ==========================================
+// 初期データ
+// ==========================================
+const INITIAL_DATA = {
+stores: [
+{
+id: "s1",
+name: "フレッシュマート 青空",
+image: "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400",
+address: "東京都渋谷区神南1-1",
+type: "スーパー"
+},
+{
+id: "s2",
+name: "コンビニエンス 24",
+image: "https://images.unsplash.com/photo-1554629947-334ff61d85dc?auto=format&fit=crop&q=80&w=400",
+address: "東京都新宿区西新宿2-2",
+type: "コンビニ"
+},
+{
+id: "s3",
+name: "ドラッグストア ライフ",
+image: "https://images.unsplash.com/photo-1576464872442-9f0e15967911?auto=format&fit=crop&q=80&w=400",
+address: "東京都港区六本木3-3",
+type: "ドラッグストア"
+}
+],
+products: [
+{
+id: "p1",
+storeId: "s1",
+name: "特選牛乳 1L",
+listPrice: 250,
+currentPrice: 150,
+isDiscounted: true,
+jan: "4901234567890",
+stock: 5,
+expiry: "2023-10-25",
+image: "https://placehold.co/150x150/e2e8f0/1e293b?text=Milk"
+},
+{
+id: "p2",
+storeId: "s1",
+name: "高級食パン",
+listPrice: 400,
+currentPrice: 400,
+isDiscounted: false,
+jan: "4901234567891",
+stock: 12,
+expiry: "2023-10-28",
+image: "https://placehold.co/150x150/e2e8f0/1e293b?text=Bread"
+},
+{
+id: "p3",
+storeId: "s1",
+name: "おにぎり（鮭）",
+listPrice: 150,
+currentPrice: 100,
+isDiscounted: true,
+jan: "4901234567892",
+stock: 3,
+expiry: "2023-10-24",
+image: "https://placehold.co/150x150/e2e8f0/1e293b?text=Onigiri"
+},
+{
+id: "p4",
+storeId: "s2",
+name: "ホットコーヒー",
+listPrice: 120,
+currentPrice: 120,
+isDiscounted: false,
+jan: "4901234567893",
+stock: 50,
+expiry: "2024-12-31",
+image: "https://placehold.co/150x150/e2e8f0/1e293b?text=Coffee"
+}
+]
+};
+// ==========================================
+// コンポーネント: モーダル (追加・編集兼用)
+// ==========================================
+const FormModal = ({ isOpen, onClose, title, onSubmit, submitLabel = "保存する", children }) => {
+if (!isOpen) return null;
+return (
+<div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+<div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto transform transition-all animate-fade-in-up">
+<div className="p-6">
+<h2 className="text-xl font-bold mb-4 text-gray-800">{title}</h2>
+<form onSubmit={onSubmit} className="space-y-4">
+{children}
+<div className="flex justify-end gap-3 pt-4 border-t">
+<button
+type="button"
+onClick={onClose}
+className="px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100 font-medium transition-colors"
+>
+キャンセル
+</button>
+<button
+type="submit"
+className="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 font-medium shadow-lg shadow-indigo-200 transition-colors"
+>
+{submitLabel}
+</button>
+</div>
+</form>
+</div>
+</div>
+</div>
+);
+};
+// ==========================================
+// メインアプリコンポーネント
+// ==========================================
+const App = () => {
+// ステート管理
+const [view, setView] = useState('stores'); // 'stores' or 'products'
+const [selectedStoreId, setSelectedStoreId] = useState(null);
+const [isEditMode, setIsEditMode] = useState(false); // 編集モード
+// データ管理 (LocalStorageから読み込み、なければ初期データ。安全のため || [] を追加)
+const [stores, setStores] = useState(() => {
+try {
+const saved = localStorage.getItem('app_stores');
+return (saved ? JSON.parse(saved) : INITIAL_DATA.stores) || [];
+} catch (e) {
+return INITIAL_DATA.stores;
+}
+});
+const [products, setProducts] = useState(() => {
+try {
+const saved = localStorage.getItem('app_products');
+return (saved ? JSON.parse(saved) : INITIAL_DATA.products) || [];
+} catch (e) {
+return INITIAL_DATA.products;
+}
+});
+// LocalStorageへ保存
+useEffect(() => {
+localStorage.setItem('app_stores', JSON.stringify(stores));
+localStorage.setItem('app_products', JSON.stringify(products));
+}, [stores, products]);
+// ソート・フィルタ用のステート
+const [sortOption, setSortOption] = useState('expiry');
+const [showDiscountFirst, setShowDiscountFirst] = useState(true);
+// モーダル用のステート
+const [isStoreModalOpen, setIsStoreModalOpen] = useState(false);
+const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+const [editingItem, setEditingItem] = useState(null); // 編集中のアイテム（nullなら新規作成）
+// 選択された店舗情報
+const currentStore = useMemo(() => {
+if (!stores) return null;
+return stores.find(s => s.id === selectedStoreId);
+}, [stores, selectedStoreId]);
+// ======================================
+// ロジック: 商品の並び替え
+// ======================================
+const filteredAndSortedProducts = useMemo(() => {
+if (!selectedStoreId || !products) return [];
+// データ安全性のために products || [] としています
+let result = (products || []).filter(p => p.storeId === selectedStoreId);
+result.sort((a, b) => {
+if (showDiscountFirst) {
+if (a.isDiscounted && !b.isDiscounted) return -1;
+if (!a.isDiscounted && b.isDiscounted) return 1;
+}
+if (sortOption === 'expiry') {
+// 日付変換の安全性確保
+const dateA = new Date(a.expiry);
+const dateB = new Date(b.expiry);
+return dateA - dateB;
+}
+if (sortOption === 'price_asc') return a.currentPrice - b.currentPrice;
+if (sortOption === 'price_desc') return b.currentPrice - a.currentPrice;
+return 0;
+});
+return result;
+}, [products, selectedStoreId, sortOption, showDiscountFirst]);
+// ======================================
+// CRUD ハンドラー
+// ======================================
+const handleSaveStore = (e) => {
+e.preventDefault();
+const formData = new FormData(e.target);
+const storeData = {
+name: formData.get('name'),
+type: formData.get('type'),
+address: formData.get('address'),
+};
+if (editingItem) {
+setStores(stores.map(s => s.id === editingItem.id ? { ...s, ...storeData } : s));
+} else {
+const newStore = {
+id: "s" + Date.now(),
+image: "https://placehold.co/600x400/f1f5f9/475569?text=Store",
+...storeData
+};
+setStores([...stores, newStore]);
+}
+setIsStoreModalOpen(false);
+setEditingItem(null);
+};
+const handleDeleteStore = (e, storeId) => {
+e.stopPropagation();
+if (window.confirm("この店舗を削除しますか？\n※紐づく商品もすべて削除されます。")) {
+setStores(stores.filter(s => s.id !== storeId));
+setProducts(products.filter(p => p.storeId !== storeId));
+}
+};
+const openStoreEditModal = (e, store) => {
+e.stopPropagation();
+setEditingItem(store);
+setIsStoreModalOpen(true);
+};
+const handleSaveProduct = (e) => {
+e.preventDefault();
+const formData = new FormData(e.target);
+const listPrice = Number(formData.get('listPrice'));
+const currentPrice = Number(formData.get('currentPrice'));
+const productData = {
+name: formData.get('name'),
+listPrice: listPrice,
+currentPrice: currentPrice,
+isDiscounted: currentPrice < listPrice,
+stock: Number(formData.get('stock')),
+expiry: formData.get('expiry'),
+jan: formData.get('jan'),
+};
+if (editingItem) {
+setProducts(products.map(p => p.id === editingItem.id ? { ...p, ...productData } : p));
+} else {
+const newProduct = {
+id: "p" + Date.now(),
+storeId: selectedStoreId,
+image: "https://placehold.co/150x150/e2e8f0/1e293b?text=Item",
+...productData
+};
+setProducts([...products, newProduct]);
+}
+setIsProductModalOpen(false);
+setEditingItem(null);
+};
+const handleDeleteProduct = (productId) => {
+if (window.confirm("この商品を削除しますか？")) {
+setProducts(products.filter(p => p.id !== productId));
+}
+};
+const openProductEditModal = (product) => {
+setEditingItem(product);
+setIsProductModalOpen(true);
+};
+// ======================================
+// ユーティリティ
+// ======================================
+const handleStoreClick = (id) => {
+if (isEditMode) return;
+// IDが有効か確認してから遷移
+if (id) {
+setSelectedStoreId(id);
+setView('products');
+window.scrollTo(0, 0);
+}
+};
+const handleBackToStores = () => {
+setSelectedStoreId(null);
+setView('stores');
+};
+const formatDate = (dateString) => {
+if(!dateString) return "";
+const d = new Date(dateString);
+if (isNaN(d.getTime())) return dateString; // 不正な日付の場合
+return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
+};
+const isExpired = (dateString) => {
+if (!dateString) return false;
+const today = new Date();
+today.setHours(0,0,0,0);
+const d = new Date(dateString);
+return d < today;
+};
+// ======================================
+// 画面描画
+// ======================================
+// 店舗一覧画面
+if (view === 'stores') {
+return (
+<div className="min-h-screen pb-20">
+<header className="bg-white shadow-sm sticky top-0 z-10">
+<div className="max-w-5xl mx-auto px-4 py-4 flex justify-between items-center">
+<h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+<i className="ph ph-storefront text-indigo-600"></i>
+店舗一覧
+</h1>
+<div className="flex gap-2">
+<button
+onClick={() => setIsEditMode(!isEditMode)}
+className={`px-4 py-2 rounded-lg flex items-center gap-2 font-medium transition-colors border ${
+isEditMode
+? 'bg-orange-100 text-orange-700 border-orange-200'
+: 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+}`}
+>
+<i className={`ph ${isEditMode ? 'ph-check-bold' : 'ph-pencil-simple'}`}></i>
+{isEditMode ? '編集終了' : '編集モード'}
+</button>
+<button
+onClick={() => { setEditingItem(null); setIsStoreModalOpen(true); }}
+className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-medium transition-colors shadow-lg shadow-indigo-200"
+>
+<i className="ph ph-plus-bold"></i> 追加
+</button>
+</div>
+</div>
+{isEditMode && (
+<div className="bg-orange-50 border-b border-orange-100 py-2 text-center text-orange-700 text-sm font-medium animate-pulse">
+店舗の編集・削除が可能です
+</div>
+)}
+</header>
+<main className="max-w-5xl mx-auto px-4 py-8">
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+{stores.map(store => (
+<div
+key={store.id}
+onClick={() => handleStoreClick(store.id)}
+className={`bg-white rounded-xl shadow-sm transition-all duration-300 overflow-hidden group border relative
+${isEditMode ? 'cursor-default' : 'cursor-pointer hover:shadow-xl hover:border-indigo-100'}
+${isEditMode ? 'border-orange-200 ring-2 ring-orange-100' : 'border-gray-100'}
+`}
+>
+<div className="h-48 overflow-hidden relative">
+<img
+src={store.image}
+alt={store.name}
+className={`w-full h-full object-cover transition-transform duration-500 ${isEditMode ? '' : 'group-hover:scale-105'}`}
+/>
+{isEditMode && (
+<div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center gap-3 backdrop-blur-sm">
+<button
+onClick={(e) => openStoreEditModal(e, store)}
+className="bg-white text-gray-800 p-2 rounded-full hover:bg-gray-100 shadow-lg transition-transform hover:scale-110"
+title="編集"
+>
+<i className="ph ph-pencil-simple text-xl"></i>
+</button>
+<button
+onClick={(e) => handleDeleteStore(e, store.id)}
+className="bg-red-500 text-white p-2 rounded-full hover:bg-red-600 shadow-lg transition-transform hover:scale-110"
+title="削除"
+>
+<i className="ph ph-trash text-xl"></i>
+</button>
+</div>
+)}
+</div>
+<div className="p-5">
+<div className="flex items-center justify-between mb-2">
+<span className="text-xs font-semibold px-2 py-1 bg-gray-100 text-gray-600 rounded-full">
+{store.type}
+</span>
+</div>
+<h2 className="text-xl font-bold text-gray-800 mb-2">{store.name}</h2>
+<p className="text-gray-500 text-sm flex items-start gap-1">
+<i className="ph ph-map-pin mt-1 text-indigo-500"></i>
+{store.address}
+</p>
+</div>
+</div>
+))}
+</div>
+</main>
+<FormModal
+isOpen={isStoreModalOpen}
+onClose={() => setIsStoreModalOpen(false)}
+title={editingItem ? "店舗情報を編集" : "新しい店舗を追加"}
+submitLabel={editingItem ? "更新する" : "追加する"}
+onSubmit={handleSaveStore}
+>
+<div>
+<label className="block text-sm font-medium text-gray-700 mb-1">店舗名</label>
+<input name="name" defaultValue={editingItem?.name} required className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="例: スーパー〇〇 渋谷店" />
+</div>
+<div>
+<label className="block text-sm font-medium text-gray-700 mb-1">業態</label>
+<select name="type" defaultValue={editingItem?.type || "スーパー"} className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 outline-none">
+<option value="スーパー">スーパー</option>
+<option value="コンビニ">コンビニ</option>
+<option value="ドラッグストア">ドラッグストア</option>
+<option value="その他">その他</option>
+</select>
+</div>
+<div>
+<label className="block text-sm font-medium text-gray-700 mb-1">住所</label>
+<input name="address" defaultValue={editingItem?.address} required className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="例: 東京都..." />
+</div>
+</FormModal>
+</div>
+);
+}
+// 商品一覧画面
+if (view === 'products') {
+// 安全策: 店舗が見つからない場合の表示
+if (!currentStore) {
+return (
+<div className="min-h-screen flex flex-col items-center justify-center text-gray-500">
+<p className="mb-4">店舗情報が見つかりませんでした。</p>
+<button onClick={handleBackToStores} className="text-indigo-600 underline hover:text-indigo-800">店舗一覧に戻る</button>
+</div>
+);
+}
+return (
+<div className="min-h-screen pb-20">
+<header className="bg-white shadow-sm sticky top-0 z-10">
+<div className="max-w-5xl mx-auto px-4 py-4">
+<div className="flex justify-between items-center mb-4">
+<button
+onClick={handleBackToStores}
+className="text-gray-500 hover:text-gray-800 flex items-center gap-1 font-medium transition-colors"
+>
+<i className="ph ph-caret-left-bold"></i> 店舗一覧に戻る
+</button>
+<div className="flex gap-2">
+<button
+onClick={() => setIsEditMode(!isEditMode)}
+className={`px-4 py-2 rounded-lg flex items-center gap-2 font-medium transition-colors border ${
+isEditMode
+? 'bg-orange-100 text-orange-700 border-orange-200'
+: 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+}`}
+>
+<i className={`ph ${isEditMode ? 'ph-check-bold' : 'ph-pencil-simple'}`}></i>
+{isEditMode ? '編集終了' : '編集モード'}
+</button>
+<button
+onClick={() => { setEditingItem(null); setIsProductModalOpen(true); }}
+className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-medium shadow-lg shadow-indigo-200"
+>
+<i className="ph ph-plus-bold"></i> 追加
+</button>
+</div>
+</div>
+<div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+<div>
+<h1 className="text-2xl font-bold text-gray-800">{currentStore?.name}</h1>
+<p className="text-gray-500 text-sm flex items-center gap-1 mt-1">
+<span className="bg-gray-100 px-2 py-0.5 rounded text-xs">{currentStore?.type}</span>
+{currentStore?.address}
+</p>
+</div>
+<div className={`bg-gray-50 p-3 rounded-lg border border-gray-200 flex flex-wrap items-center gap-4 text-sm transition-opacity ${isEditMode ? 'opacity-50 pointer-events-none' : ''}`}>
+<div className="flex items-center gap-2">
+<i className="ph ph-sort-ascending text-gray-500"></i>
+<select
+value={sortOption}
+onChange={(e) => setSortOption(e.target.value)}
+className="bg-white border border-gray-300 rounded px-2 py-1 outline-none"
+>
+<option value="expiry">期限の近い順</option>
+<option value="price_asc">価格が安い順</option>
+<option value="price_desc">価格が高い順</option>
+</select>
+</div>
+<label className="flex items-center gap-2 cursor-pointer select-none">
+<input
+type="checkbox"
+checked={showDiscountFirst}
+onChange={(e) => setShowDiscountFirst(e.target.checked)}
+className="w-4 h-4 text-indigo-600 rounded"
+/>
+<span className="text-gray-700">割引中を優先表示</span>
+</label>
+</div>
+</div>
+</div>
+{isEditMode && (
+<div className="bg-orange-50 border-b border-orange-100 py-2 text-center text-orange-700 text-sm font-medium animate-pulse">
+商品の編集・削除が可能です
+</div>
+)}
+</header>
+<main className="max-w-5xl mx-auto px-4 py-8">
+{filteredAndSortedProducts.length === 0 ? (
+<div className="text-center py-20 text-gray-400">
+<i className="ph ph-basket text-6xl mb-4"></i>
+<p>登録されている商品はありません</p>
+</div>
+) : (
+<div className="space-y-4">
+{filteredAndSortedProducts.map(product => {
+const isExpiredItem = isExpired(product.expiry);
+return (
+<div
+key={product.id}
+className={`bg-white rounded-xl shadow-sm p-4 flex gap-4 items-center border-l-4 transition-all relative
+${product.isDiscounted ? 'border-l-red-500 ring-1 ring-red-100 bg-red-50/30' : 'border-l-transparent'}
+${isEditMode ? 'border border-orange-200 ring-2 ring-orange-100' : 'hover:shadow-md'}
+`}
+>
+{/* Image */}
+<div className="w-20 h-20 flex-shrink-0 bg-gray-200 rounded-lg overflow-hidden relative">
+<img src={product.image} className="w-full h-full object-cover" alt={product.name} />
+{product.isDiscounted && !isEditMode && (
+<div className="absolute top-0 left-0 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-br">
+SALE
+</div>
+)}
+</div>
+{/* Info */}
+<div className={`flex-1 min-w-0 ${isEditMode ? 'opacity-40 blur-[1px]' : ''}`}>
+<div className="flex justify-between items-start mb-1">
+<h3 className="text-lg font-bold text-gray-800 truncate pr-2">{product.name}</h3>
+{isExpiredItem && <span className="text-xs bg-gray-800 text-white px-2 py-0.5 rounded flex-shrink-0">期限切れ</span>}
+</div>
+<div className="flex flex-wrap items-baseline gap-2 mb-2">
+<span className={`text-xl font-bold ${product.isDiscounted ? 'text-red-600' : 'text-gray-800'}`}>
+¥{product.currentPrice.toLocaleString()}
+</span>
+{product.isDiscounted && (
+<span className="text-sm text-gray-400 line-through">
+定価 ¥{product.listPrice.toLocaleString()}
+</span>
+)}
+</div>
+<div className="flex items-center gap-4 text-sm text-gray-500">
+<div className={`flex items-center gap-1 ${isExpiredItem ? 'text-red-600 font-bold' : ''}`}>
+<i className="ph ph-clock"></i>
+期限: {formatDate(product.expiry)}
+</div>
+<div className="flex items-center gap-1">
+<i className="ph ph-package"></i>
+在庫: {product.stock}
+</div>
+</div>
+</div>
+{/* Edit Actions Overlay */}
+{isEditMode && (
+<div className="absolute inset-0 flex items-center justify-center gap-4 z-10">
+<button
+onClick={() => openProductEditModal(product)}
+className="bg-white text-gray-800 px-4 py-2 rounded-lg font-bold shadow-lg border border-gray-200 hover:bg-gray-50 flex items-center gap-2 transform transition hover:scale-105"
+>
+<i className="ph ph-pencil-simple text-lg"></i> 編集
+</button>
+<button
+onClick={() => handleDeleteProduct(product.id)}
+className="bg-red-500 text-white px-4 py-2 rounded-lg font-bold shadow-lg hover:bg-red-600 flex items-center gap-2 transform transition hover:scale-105"
+>
+<i className="ph ph-trash text-lg"></i> 削除
+</button>
+</div>
+)}
+</div>
+);
+})}
+</div>
+)}
+</main>
+<FormModal
+isOpen={isProductModalOpen}
+onClose={() => setIsProductModalOpen(false)}
+title={editingItem ? "商品情報を編集" : "商品を追加"}
+submitLabel={editingItem ? "更新する" : "追加する"}
+onSubmit={handleSaveProduct}
+>
+<div>
+<label className="block text-sm font-medium text-gray-700 mb-1">商品名</label>
+<input name="name" defaultValue={editingItem?.name} required className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 outline-none" />
+</div>
+<div className="grid grid-cols-2 gap-4">
+<div>
+<label className="block text-sm font-medium text-gray-700 mb-1">定価 (¥)</label>
+<input type="number" name="listPrice" defaultValue={editingItem?.listPrice} required className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 outline-none" />
+</div>
+<div>
+<label className="block text-sm font-medium text-gray-700 mb-1">販売価格 (¥)</label>
+<input type="number" name="currentPrice" defaultValue={editingItem?.currentPrice} required className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 outline-none" />
+<p className="text-xs text-gray-500 mt-1">※定価より安ければ自動で割引表示になります</p>
+</div>
+</div>
+<div className="grid grid-cols-2 gap-4">
+<div>
+<label className="block text-sm font-medium text-gray-700 mb-1">期限 (賞味/消費)</label>
+<input type="date" name="expiry" defaultValue={editingItem?.expiry} required className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 outline-none" />
+</div>
+<div>
+<label className="block text-sm font-medium text-gray-700 mb-1">在庫数</label>
+<input type="number" name="stock" defaultValue={editingItem?.stock ?? 1} required className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 outline-none" />
+</div>
+</div>
+<div>
+<label className="block text-sm font-medium text-gray-700 mb-1">JANコード</label>
+<input name="jan" defaultValue={editingItem?.jan} className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="スキャンまたは入力" />
+</div>
+</FormModal>
+</div>
+);
+}
+return null;
+};
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+</script>
+</body>
+</html>

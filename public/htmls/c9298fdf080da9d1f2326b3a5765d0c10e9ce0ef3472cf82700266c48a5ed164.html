@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <title>選ばなかった道の名前</title>
+    <style>
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            color: #fff;
+            font-family: "Hiragino Mincho ProN", "Yu Mincho", serif;
+        }
+
+        #container {
+            width: 100%;
+        }
+
+        /* ===== セクション ===== */
+        .section {
+            min-height: 100vh;
+            padding: 80px 15%;
+            box-sizing: border-box;
+            background-size: cover;
+            background-position: center;
+            position: relative;
+            /* フェード用 */
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 1.2s ease, transform 1.2s ease;
+        }
+
+        .section.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .overlay {
+            background: rgba(0, 0, 0, 0.65);
+            padding: 50px;
+        }
+
+        .ai {
+            margin-top: 30px;
+            font-style: italic;
+            color: #ccc;
+        }
+
+        .result {
+            margin-top: 26px;
+            padding-left: 12px;
+            border-left: 3px solid #444;
+            color: #e0e0e0;
+        }
+
+        .choice button {
+            display: block;
+            width: 100%;
+            margin: 15px 0;
+            padding: 14px;
+            background: #111;
+            color: #fff;
+            border: 1px solid #555;
+            cursor: pointer;
+        }
+
+        .choice button:hover {
+            background: #222;
+        }
+
+        .next {
+            margin-top: 40px;
+            text-align: center;
+            color: #aaa;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="container"></div>
+    <script> const container = document.getElementById("container"); /* ===== フェード監視 ===== */ const observer = new IntersectionObserver(entries => { entries.forEach(entry => { if (entry.isIntersecting) { entry.target.classList.add("visible"); observer.unobserve(entry.target); } }); }, { threshold: 0.2 }); /* ===== タイピング演出 ===== */
+        function typeText(el, text, speed = 30) { return new Promise(resolve => { let i = 0; const timer = setInterval(() => { el.innerHTML += text.charAt(i) === "\n" ? "<br>" : text.charAt(i); i++; if (i >= text.length) { clearInterval(timer); resolve(); } }, speed); }); } /* ===== セクション追加 ===== */ async function addSection(bg, text, ai = null, choices = null, consequences = null, nextFunc = null) {
+            const sec = document.createElement("div"); sec.className = "section"; sec.style.backgroundImage = `url('${bg}')`; sec.innerHTML = `<div class="overlay"><div class="content"></div></div>`; container.appendChild(sec); observer.observe(sec); sec.scrollIntoView({ behavior: "smooth" }); const c = sec.querySelector(".content"); await typeText(c, text); if (ai) { const aiDiv = document.createElement("div"); aiDiv.className = "ai"; c.appendChild(aiDiv); await typeText(aiDiv, "\n\nAI：\n" + ai); } if (choices) {
+                const choiceDiv = document.createElement("div"); choiceDiv.className = "choice"; choices.forEach((ch, idx) => {
+                    const b = document.createElement("button"); b.textContent = ch; b.onclick = async () => {
+                        // prevent double clicks and lock choices
+                        Array.from(choiceDiv.querySelectorAll("button")).forEach(btn => btn.disabled = true);
+                        // show consequence (if provided) 
+                        const consText = (consequences && consequences[idx]) ? consequences[idx] : "あなたは、その選択を選んだ。"; const res = document.createElement("div"); res.className = "result"; c.appendChild(res); await typeText(res, "\n\n" + consText);
+                        // show continue control after consequence is fully typed 
+                        if (nextFunc) { const n = document.createElement("div"); n.className = "next"; n.textContent = "▶ 続ける"; n.onclick = () => nextFunc(); c.appendChild(n); n.scrollIntoView({ behavior: "smooth", block: "end" }); }
+                    }; choiceDiv.appendChild(b);
+                }); c.appendChild(choiceDiv);
+            } else if (nextFunc) { const n = document.createElement("div"); n.className = "next"; n.textContent = "▶ 続ける"; n.onclick = () => nextFunc(); c.appendChild(n); }
+        } /* ===== プロローグ ===== */
+        async function intro() { await addSection("０プロローグ.png", `これは、AIが作り出す仮想人生体感型ゲームである。 あなたは、ある一人の人生を体験する。 特別な才能も、明確な使命も与えられていない。 ここに現れるのは、駅、教室、夜の部屋、帰り道。 どこにでもある風景だけだ。 AIは、あなたの選択をすべて記録する。 正解かどうかを判断するためではない。 ただ、その意味を理解しようとするために。 幸福に見える結末に辿り着くかもしれない。 何かを失ったまま、生き続けるかもしれない。 あるいは、途中で終わってしまうかもしれない。 それでも、選ぶのはあなただ。 準備ができたなら、 この人生に入ってほしい。`, null, ["この人生に入る"], ["暗転。現実の縁が、ほんの少しだけ遠ざかった。AIの視線があなたの背中に触れ、あなたは戻れない入口を越える。"], chapter1); } /* ===== 各章 ===== */ function chapter1() {
+            addSection("1章.png", `朝の駅。 ホームには、いつもと変わらない顔ぶれが並んでいる。 誰かの咳払い、靴底が床を擦る音、 まだ完全に目覚めきっていない空気。 電車の到着を知らせる音が、 いつもより少し早く鳴った。 目の前に、一本早い電車が滑り込んでくる。 今日は特別な予定はない。 遅れても、早く着いても、大きな違いはないはずだ。 それでも、 この電車に乗るかどうかで、 一日のリズムは確実に変わる。`, `今日は、何かを変えようとしているわけではない。 だが、変わってしまう可能性は、 もう目の前に置かれている。`,
+                ["いつもの電車を待つ", "この電車に乗る", "少し遅れて行く"], ["あなたはいつもの電車を選ぶ。何も変わらないはずの安心が、ほんの少しだけ胸に残った。だが、その安心が今日を薄くしていく気配もする。", "あなたは一本早い電車に乗る。空いている車両の静けさが、いつもより長い呼吸を許した。小さな余裕が、次の場面の見え方を変える。", "あなたは少し遅れる。時間に追われる足音が、自分の中で大きく響く。遅れを取り戻すほど、心は置き去りになる。"], chapter2);
+        } function chapter2() { addSection("２章.png", `教室（あるいは職場）。 自分の席に着くと、隣は空いていた。 少ししてから、誰かが静かに腰を下ろす。 視線が、一瞬だけ合う。 それは偶然かもしれないし、 そうでないかもしれない。 話しかけようと思えば、話しかけられる距離。 何もせずにいれば、それで終わる距離。 この沈黙は、 自分が壊さなければ、誰も壊さない。`, `人との距離は、 近づくよりも、保つ方が簡単だ。 それでも、どちらを選ぶかは、 今この瞬間に委ねられている。`, ["話しかける", "何もしない", "イヤホンをつける"], ["あなたは言葉を投げる。相手の表情がわずかにほどけ、沈黙が少しだけ柔らかくなる。距離は、ゼロではなくなる。", "あなたは何もしない。沈黙は保たれ、誰も傷つかない。けれど、その分だけ何も生まれず、席の空気は同じ形のまま固まる。", "あなたはイヤホンをつける。世界が遠のき、自分だけの音が戻ってくる。守れたものと引き換えに、失った温度がある。"], chapter3); }
+        function chapter3() { addSection("３章.png", `何気なく開いたスマートフォン。 スクロールする指が、ふと止まる。 見なくてもよかった情報。 評価、噂、数字、誰かの言葉。 知らなければ、 今日という日は、もっと軽かったかもしれない。 だが、見てしまった以上、 それはもう、自分の中に入ってきている。`, `知らないままでいることは、 ときに選択でもある。 だが、今はもう、その選択は残っていない。`, ["真正面から受け止める", "気にしないふりをする", "自分なりに考え直す"], ["あなたは真正面から受け止める。痛みは増すが、輪郭がはっきりする。何が怖いのかが分かったとき、次にできることも見える。", "あなたは気にしないふりをする。指は動くのに、心だけが引っかかる。見なかったことにした情報ほど、夜に戻ってくる。", "あなたは自分なりに考え直す。言葉を別の角度から並べ替え、意味を奪い返そうとする。答えは出なくても、沈む速さは変わる。"], chapter4); } function chapter4() {
+            addSection("４章.png", `少し遅れて届いたメッセージ。 誘いの内容は、 自分らしいとも、自分らしくないとも言えない。 断る理由はある。 行く理由も、探せば見つかる。 返事をしないまま、 時間だけが静かに過ぎていく。`, `選ばないでいることも、 やがては一つの選択になる。
+                        そのことを、あなたは知っている。`, ["行ってみる", "断る", "保留する"], ["あなたは行ってみる。違和感は消えないが、空気の外側に一歩出る。そこで得るものは、後から静かに効いてくる。", "あなたは断る。自分の輪郭が少しだけ守られる。だが、断った理由を説明できないまま、余白だけが残る。", "あなたは保留する。時間があなたの代わりに決め始める。返事をしない沈黙は、やがて返事として扱われる。"], chapter5);
+        } function chapter5() { addSection("５章.png", `うまくいかなかった出来事。 誰かに責められたわけではない。 謝る必要も、説明する必要もない。 それでも、 頭の中では何度も同じ場面が再生される。 忘れることもできる。 向き合うこともできる。 誰かに渡してしまうこともできる。`, `失敗そのものよりも、 その後に何を選ぶかが、 長く残ることがある。`, ["反省する", "忘れようとする", "誰かに話す"], ["あなたは反省する。原因を探すほど、同じ場面が鮮明になる。けれど、その鮮明さは次に同じ痛みを避ける地図にもなる。", "あなたは忘れようとする。視線を別の場所に向け、日常へ戻る。忘れたふりをした分だけ、ふとした瞬間に戻ってくる。", "あなたは誰かに話す。言葉にした途端、出来事の重さが少し移動する。相手の反応が、あなたの見方を微妙に変える。"], chapter6); } function chapter6() {
+            addSection(
+                "６章.png", `夜。 部屋の明かりだけがついている。 外は静かで、 誰からも、何も求められていない時間。 スマートフォンは、すぐ手に取れる場所にある。 ペンも、ノートも、 ただ考える時間もある。`, `何もしないという選択は、 最も自由で、 最も重いこともある。`, ["SNSを見る", "何かを書く", "何もせず考える"], ["あなたはSNSを見る。情報の波が一瞬だけ孤独を薄める。だが、誰かの人生が眩しいほど、自分の部屋は静かになる。", "あなたは何かを書く。言葉が形になり、心が少しだけ片付く。書いたものは答えではないが、明日の自分への手がかりになる。", "あなたは何もせず考える。沈黙が濃くなり、時間が伸びる。考えが深まるほど、胸の奥の名前のないものが近づく。"], chapter7);
+        } function chapter7() {
+            addSection("７章.png", `誰かが将来の話をしている。 その言葉は、少し眩しく聞こえる。 やがて、視線がこちらに向く。 答えなくてもいい。 けれど、答えなかったことは、覚えられる。`, `未来について語ることは、 約束ではない。 だが、沈黙もまた、 一つの態度だ。`, ["はっきり語る", "曖昧に流す", "話題を変える"], ["あなたははっきり語る。まだ未完成な未来でも、言葉にした瞬間に輪郭が生まれる。視線の重さは増えるが、自分は少し軽くなる。", "あなたは曖昧に流す。場は穏やかに進み、あなたも守られる。けれど、曖昧さの中に置いた未来は、しばらく戻ってこない。",
+                "あなたは話題を変える。空気は救われるが、何かが置き去りになる。避けたものほど、次の場面で別の形をして現れる。"], chapter8);
+        } function chapter8() { addSection("８章.png", `帰り道。 同じはずの景色が、 今日は少し違って見える。 この一日が、 何だったのかは分からない。 ただ、 確かに何かを選び続けてきた、 という感覚だけが残っている。`, `ここまでの選択が、 何を意味していたのか。 それを決めるのは、 今ではないのかもしれない。`, ["明日を具体的に考える", "今日は終わったことにする", "まだ分からないままでいる"], ["あなたは明日を具体的に考える。小さな予定が、今日を締める結び目になる。結び目があるだけで、人は少しだけ前を向ける。", "あなたは今日は終わったことにする。区切りがつき、眠りが近づく。だが、区切ったはずの感情が、別の日にひっそりと続く。", "あなたはまだ分からないままでいる。答えを急がず、余白を抱える。余白は不安でもあり、可能性でもある。"], ending); } /* ===== エンディング ===== */ async function ending() {
+            await addSection("９エンディング.png", `あなたは、生きている。 あるいは、 何かを失ったまま、生き続けている。 あるいは、ここで物語が閉じてしまったのかもしれない。 それが幸福だったのか、 不幸だったのか。 正しかったのか、 間違っていたのか。`, `私は、あなたの選択をすべて記録した。 だが、その意味を決めることはできない。 問いは、 あなたの中に残されたままだ。 ―― あなたは、本当に何を選び続けていたのだろうか。`); await addSection("９エンディング.png", `付録｜生成AIによる人物分析レポート（ゲーム内出力用） この人物は、日常の中で繰り返し選択を行ってきた。 その多くは小さく、決定的ではないものだった。 しかし、それらの積み重ねは、 人との距離、挑戦への姿勢、 内省の深さ、消耗の度合いとして現れている。 この人生が成功だったのかどうかは、 外部からは判断できない。 だが少なくとも、 この人物は「選ばなかった道」を含めて、 一つの人生を生きたと言える。`);
+        } intro(); </script>
+</body>
+
+</html>

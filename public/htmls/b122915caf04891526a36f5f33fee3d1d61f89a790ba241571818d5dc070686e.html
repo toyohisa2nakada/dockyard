@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <title>文章ベース性格診断AI</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6f8;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 750px;
+            margin: 40px auto;
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        textarea {
+            width: 100%;
+            height: 80px;
+            margin-bottom: 15px;
+            padding: 10px;
+            font-size: 14px;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        .result {
+            margin-top: 25px;
+            padding: 20px;
+            background: #eef3f7;
+            border-radius: 8px;
+            display: none;
+        }
+
+        h3 {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>文章ベース性格診断AI</h1>
+        <p>質問1：休日はどのように過ごすことが多いですか？</p>
+        <textarea id="q1"></textarea>
+        <p>質問2：集団で行動するのは好きですか？理由も書いてください。</p>
+        <textarea id="q2"></textarea>
+        <p>質問3：新しいことに挑戦するのは好きですか？</p>
+        <textarea id="q3"></textarea>
+        <button onclick="analyze()">診断する</button>
+        <div class="result" id="result">
+            <h2>診断結果</h2>
+            <h3>性格タイプ</h3>
+            <p id="personality"></p>
+            <h3>向いている職業</h3>
+            <p id="jobs"></p>
+            <h3>相性のいい女性タイプ</h3>
+            <p id="partner"></p>
+            <h3>アドバイス</h3>
+            <p id="advice"></p>
+        </div>
+    </div>
+    <script>
+        function analyze() {
+            const text =
+                document.getElementById("q1").value +
+                document.getElementById("q2").value +
+                document.getElementById("q3").value;
+            let score = 0;
+            const activeWords = ["好き", "楽しい", "挑戦", "人", "交流", "新しい", "外"];
+            const calmWords = ["一人", "家", "静か", "考える", "落ち着く", "慎重"];
+            activeWords.forEach(word => {
+                if (text.includes(word)) score++;
+            });
+            calmWords.forEach(word => {
+                if (text.includes(word)) score--;
+            });
+            let personalityText = "";
+            let jobText = "";
+            let partnerText = "";
+            let adviceText = "";
+            if (score >= 2) {
+                personalityText = "あなたは社交的で行動力があり、新しいことに積極的に挑戦するタイプです。";
+                jobText = "営業職、企画職、マーケティング、イベント運営、起業家タイプの仕事が向いています。";
+                partnerText = "あなたを支え、落ち着いて話を聞いてくれる包容力のある女性タイプと相性が良いでしょう。";
+                adviceText = "行動力は大きな強みですが、時には立ち止まって計画を立てることも意識するとさらに成長できます。";
+            } else if (score <= -1) {
+                personalityText = "あなたは物事を慎重に考え、落ち着いて行動する思慮深いタイプです。";
+                jobText = "研究職、エンジニア、事務職、データ分析、デザインなど集中力を活かせる仕事が向いています。";
+                partnerText = "明るく積極的で、あなたを外の世界へ引っ張ってくれる女性タイプと相性が良いでしょう。";
+                adviceText = "自分のペースを大切にしつつ、小さな挑戦を重ねることで自信につながります。";
+            } else {
+                personalityText = "あなたは状況に応じて柔軟に対応できるバランス型タイプです。";
+                jobText = "調整役、マネジメント、教育関係、カスタマーサポートなど人と人をつなぐ仕事が向いています。";
+                partnerText = "価値観を共有でき、対等な関係を築ける女性タイプと良い関係を築けるでしょう。";
+                adviceText = "自分の強みが分かりにくい場合がありますが、周囲からの評価を積極的に取り入れると良いでしょう。";
+            }
+            document.getElementById("personality").textContent = personalityText;
+            document.getElementById("jobs").textContent = jobText;
+            document.getElementById("partner").textContent = partnerText;
+            document.getElementById("advice").textContent = adviceText;
+            document.getElementById("result").style.display = "block";
+        }
+    </script>
+</body>
+
+</html>

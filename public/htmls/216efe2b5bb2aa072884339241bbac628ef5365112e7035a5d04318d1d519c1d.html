@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Link Player</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+    <style>
+        /* --- ページ全体と背景 --- */
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont,
+                'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+            /*
+要素を縦に並べる設定 */
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            /* 上から配置 */
+            align-items: center;
+            /*
+水平方向中央揃え */
+            color: #fff;
+            /* 上下に余白を追加 */
+            padding-top: 20px;
+            padding-bottom: 20px;
+        }
+
+        .background-image {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            /* ここに任意の背景画像を設定 */
+            background-image:
+                url('https://picsum.photos/1920/1080?random=1');
+            /* ダミー画像 */
+            background-size: cover;
+            background-position: center;
+            filter: blur(8px);
+            /* 背景を少しぼかす */
+            z-index: -1;
+            /* プレイヤーより奥に配置 */
+        }
+
+        /* --- プレイヤーコンテナ --- */
+        .player-container {
+            background-color: rgba(255, 255, 255, 0.15);
+            /* 半透明の白 */
+            backdrop-filter: blur(30px);
+            /* すりガラス効果 */
+            -webkit-backdrop-filter: blur(30px);
+            /* Safari対応 */
+            border-radius: 30px;
+            /* 角丸 */
+            padding: 20px;
+            width: 320px;
+            /* 基本の幅
+*/
+            max-width: 90vw;
+            /* 画面幅の90%を最大幅に */
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            /* 軽い枠線 */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap:
+                15px;
+            /* 要素間のスペース */
+            margin-bottom: 20px;
+            /* 詳細セクションとの間に余白 */
+        }
+
+        /* --- 画像エリア --- */
+        .image-area {
+            width: 100%;
+            padding-top: 100%;
+            /* 高さを幅と同じにする（正方形） */
+            position: relative;
+            border-radius: 15px;
+            overflow: hidden;
+            /* 角丸に合わせて画像を切り抜く */
+            background-color: rgba(0, 0, 0, 0.2);
+        }
+
+        .image-area img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height:
+                100%;
+            object-fit: cover;
+        }
+
+        /* --- 情報エリア（タイトル） --- */
+        .info-area {
+            width: 100%;
+            text-align: left;
+            padding-left: 5px;
+        }
+
+        .info-area .title {
+            font-size: 1.5em;
+            font-weight: bold;
+            margin: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .info-area .artist {
+            font-size: 1em;
+            color: rgba(255, 255, 255, 0.7);
+            margin: 5px 0 0 0;
+        }
+
+        /* --- プログレスバー --- */
+        .progress-bar-container {
+            width: 100%;
+            height: 4px;
+            background-color: rgba(255, 255, 255, 0.3);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            width: 0%;
+            /* JavaScriptで制御 */
+            height: 100%;
+            background-color: #fff;
+            border-radius: 2px;
+            /*
+滑らかに動かすためのtransitionはJS側で制御するため不要 */
+        }
+
+        .time-display {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8em;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        /* --- コントロールボタン --- */
+        .controls {
+            display: flex;
+            justify-content:
+                center;
+            align-items: center;
+            gap: 20px;
+            width: 100%;
+        }
+
+        .player-button {
+            background: none;
+            border: none;
+            color: #fff;
+            cursor: pointer;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            -webkit-tap-highlight-color: transparent;
+            /*
+スマホタップ時のハイライト消去 */
+        }
+
+        .player-button i.material-icons {
+            font-size: 36px;
+            /* アイコンサイズ */
+        }
+
+        .player-button.large i.material-icons {
+            font-size: 60px;
+            /* 再生/一時停止ボタンは大きく */
+        }
+
+        .player-button:hover {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .player-button:active {
+            opacity: 0.7;
+        }
+
+        /* --- 音量コントロール (ダミー) --- */
+        .volume-control {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .volume-control i.material-icons {
+            font-size: 20px;
+        }
+
+        .volume-slider {
+            flex-grow: 1;
+            -webkit-appearance: none;
+            appearance: none;
+            height: 4px;
+            background:
+                rgba(255, 255, 255, 0.3);
+            border-radius: 2px;
+            outline: none;
+        }
+
+        .volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            background: #fff;
+            cursor: pointer;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        .volume-slider::-moz-range-thumb {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            background: #fff;
+            cursor: pointer;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+            border: none;
+        }
+
+        /* --- 共有ボタン (AirPlayボタンのスタイルを流用) --- */
+        .airplay-button {
+            background-color: rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            padding: 8px 15px;
+            margin-top: 15px;
+            font-size: 0.9em;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            /*
+buttonタグのデフォルトスタイルをリセット */
+            border: none;
+            color: #fff;
+        }
+
+        .airplay-button:hover {
+            background-color: rgba(255, 255, 255,
+                    0.3);
+        }
+
+        .airplay-button i.material-icons {
+            font-size: 18px;
+        }
+
+        /* --- 詳細情報セクション --- */
+        .detail-section {
+            background-color: rgba(0, 0, 0, 0.5);
+            /* 半透明の黒 */
+            backdrop-filter:
+                blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 20px;
+            width: 320px;
+            /* プレイヤーと同じ幅 */
+            max-width: 90vw;
+            /* プレイヤーと同じ最大幅 */
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255,
+                    0.1);
+            color: #fff;
+            margin-top: 0;
+            /* スクロール可能にする設定 */
+            max-height: 400px;
+            /* 最大高さを設定（これを超えるとスクロール） */
+            overflow-y: auto;
+            /*
+縦方向にスクロール可能 */
+            scrollbar-width: none;
+            /* Firefox スクロールバー非表示 */
+            -ms-overflow-style: none;
+            /* IE and Edge スクロールバー非表示 */
+        }
+
+        /* Chrome, Safari, Opera でスクロールバーを非表示にする */
+        .detail-section::-webkit-scrollbar {
+            display: none;
+        }
+
+        .detail-section h2 {
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .detail-section #detail-content {
+            font-size: 0.9em;
+            line-height: 1.6;
+            color: rgba(255, 255, 255, 0.7);
+            white-space:
+                pre-wrap;
+            /* 改行コード(\n)を反映させる */
+        }
+
+        /* --- ページ全体と背景 --- (変更なし) --- */
+        /* ... 途中のCSS（.player-container など）も変更なし ... */
+        /* --- ページ全体と背景 --- (変更なし) --- */
+        /* ... 途中のCSS（.player-container
+など）も変更なし ... */
+        /* ネオンCDの親コンテナ (画面全体に固定) は変更なし */
+        .neon-cd-background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            z-index: -1;
+            background-color: #1a0000;
+        }
+
+        /* ネオンCD本体 */
+        .neon-cd {
+            width: 150vh;
+            height: 150vh;
+            border-radius: 50%;
+            position:
+                absolute;
+            right: -25%;
+            bottom: -25%;
+            top: auto;
+            left: auto;
+            transform: rotate(0deg);
+            background-color: transparent;
+            /*
+★変更: 透明度を少し上げ、鮮やかさを出す (0.45 -> 0.55)★ */
+            opacity: 0.55;
+            /* ★変更: 光のぼかしを減らし、鮮明な光沢に★ */
+            filter: drop-shadow(0 0 35px rgba(255, 0, 100, 0.7));
+            /* ぼかしを削除 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            animation:
+                rotateLargeCDRightBottom 30s linear infinite;
+        }
+
+        /* CDの「記録面」の反射を表現 (虹色) */
+        .cd-inner-gradient {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            /*
+★変更: 虹色と溝のコントラスト・鮮やかさを大幅に強化★ */
+            background:
+                /* 1層目: 虹色の反射 (conic-gradient) をさらに強調 */
+                conic-gradient(from 0deg,
+                    rgba(255, 0, 100, 0.2),
+                    /* 0.1 -> 0.2 */
+                    rgba(0, 255, 255, 0.2), rgba(255, 255, 0, 0.2), rgba(0, 255, 0, 0.2), rgba(255,
+                        0, 255, 0.2), rgba(255, 0, 100, 0.2)),
+                /* 2層目: 同心円状の溝をさらに細かく、コントラストを付けて表現 */
+                radial-gradient(circle at center,
+                    rgba(255, 0, 100, 0.05) 0%,
+                    /* 中心 */
+                    rgba(255, 0, 100, 0.15) 3%,
+                    /* 最初のリングの光 */
+                    rgba(0, 0, 0, 0.4) 4%,
+                    /* 最初のリングの影 */
+                    rgba(255, 0, 100, 0.05) 7%, rgba(255, 0, 100, 0.15) 9%, rgba(0, 0, 0, 0.45) 10%,
+                    /* 次のリングの影 */
+                    rgba(255, 0, 100, 0.05) 13%, rgba(255, 0, 100, 0.15) 15%, rgba(0, 0, 0, 0.5) 16%,
+                    /* さらに濃い溝 */
+                    rgba(255, 0, 100, 0.05) 19%, rgba(255, 0, 100,
+                        0.15) 21%, rgba(0, 0, 0, 0.6) 22%, rgba(0, 0, 0, 0.8) 50%,
+                    /* 外側へ向かって暗く */
+                    rgba(0, 0, 0, 0.9) 100%);
+            background-blend-mode: screen;
+            /* ★変更: ぼかしを極限まで減らし、鮮明な光沢に (0.8px -> 0.1px)★ */
+            filter: blur(0.1px);
+        }
+
+        /* CDの中心の穴 */
+        .cd-center-hole {
+            position: absolute;
+            width: 20%;
+            height: 20%;
+            border-radius: 50%;
+            background-color: #0d0000;
+            /* ★変更: 中心穴の光も鮮やかに★ */
+            border: 6px solid rgba(255, 0, 100, 0.6);
+            /* 5px -> 6px, 透明度アップ */
+            box-shadow: 0 0 25px rgba(255, 0, 100, 0.9);
+            /* 20px
+-> 25px, 透明度アップ */
+            z-index: 2;
+        }
+
+        /* CDの外側のネオンリング */
+        .cd-neon-ring-outer {
+            position: absolute;
+            width: 90%;
+            height: 90%;
+            border-radius: 50%;
+            /* ★変更: ボーダーを強化し、ネオン色をより鮮明に★ */
+            border: 6px solid transparent;
+            /* 4px -> 6px */
+            border-image:
+                linear-gradient(to right, #ff00ff, #ff0066, #ff00ff) 1;
+            /* ★変更: 光のぼかしを減らし、鮮明な光沢に★ */
+            filter: drop-shadow(0 0 12px rgba(255, 0, 100, 0.8)) drop-shadow(0 0 20px rgba(255, 0, 200, 0.5));
+            z-index: 1;
+        }
+
+        /* CDの内側のネオンリング */
+        .cd-neon-ring-inner {
+            position: absolute;
+            width: 50%;
+            height: 50%;
+            border-radius: 50%;
+            /* ★変更: ボーダーを強化し、ネオン色をより鮮明に★ */
+            border: 3px solid transparent;
+            /* 2px -> 3px */
+            border-image: linear-gradient(to left, #00ffff, #00ff66, #00ffff) 1;
+            /*
+★変更: 光のぼかしを減らし、鮮明な光沢に★ */
+            filter: drop-shadow(0 0 8px rgba(0, 255, 255, 0.6)) drop-shadow(0 0 12px rgba(0, 255, 200,
+                        0.4));
+            z-index: 1;
+        }
+
+        /* 回転アニメーションの定義 (変更なし) */
+        @keyframes rotateLargeCDRightBottom {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="neon-cd-background">
+        <div class="neon-cd">
+            <div class="cd-inner-gradient"></div>
+            <div class="cd-center-hole"></div>
+            <div class="cd-neon-ring-outer"></div>
+            <div class="cd-neon-ring-inner"></div>
+        </div>
+    </div>
+    <div class="player-container">
+        <div class="image-area"> <img id="player-image" src="" alt="表示画像"> </div>
+        <div class="info-area">
+            <p id="player-title" class="title">タイトル</p>
+            <p class="artist">アーティスト名</p>
+        </div>
+        <div class="progress-bar-container">
+            <div id="progress-bar-fill" class="progress-bar-fill"></div>
+        </div>
+        <div class="time-display"> <span id="current-time">0:00</span> <span id="total-time">0:10</span> </div>
+        <div class="controls"> <button id="prev-button" class="player-button"> <i
+                    class="material-icons">skip_previous</i> </button> <button id="play-pause-button"
+                class="player-button large">
+                <i class="material-icons">play_arrow</i> </button> <button id="next-button" class="player-button"> <i
+                    class="material-icons">skip_next</i> </button> </div>
+        <div class="volume-control"> <i class="material-icons">volume_down</i> <input type="range" class="volume-slider"
+                min="0" max="100" value="70"> <i class="material-icons">volume_up</i> </div> <button id="share-button"
+            class="airplay-button"> <i class="material-icons">share</i> 共有 </button>
+    </div>
+    <div class="detail-section">
+        <h2 id="detail-title">詳細情報</h2>
+        <div id="detail-content">
+            <p>ここに各コンテンツの詳細情報が表示されます。</p>
+            <p>自己紹介や歌詞など、様々な内容を追加できます。</p>
+        </div>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const contents = [{
+                title: "自己紹介", artist: "", image:
+                    "./myicon.png", link: "", details:
+                    "私の名前は齊藤優瞬[さいとうゆうま]です。難しい漢字ばかりで小学校の習字の時にはとても苦労をしました笑\n私は'人間の行動力は楽しい'から来ていると考えています。\nですので私は楽しいをモットーにさらに面白く、楽しく改善できるのではと常に考えて生活しています。\n動画なども伝えたいことをしっかりと捉えどうすればみんなが見てもらえるか、最初の3秒で決めに行きます。\n何かイベントなどでどうすればもっと伝わるかなど困ることがあったらご連絡ください！\nFacebookは2曲次で👋"
+            }, {
+                title: "私の通っている大学『iU』", artist: "情報経営イノベーション専門職大学", image:
+                    "https://gateway.guide/wp-content/uploads/2024/04/338690348_6171625642883693_3271966848565495560_n.jpg", link:
+                    "https://www.i-u.ac.jp/", details: "私が現在通っているiU\n正式名称『情報経営イノベーション専門職大学』です.\n設立7年目の大学でいい意味で何でもありで自分の好きなことを学べます。\n楽しいという感情を大切に, 主体的に学習を進めています。"
+            }, {
+                title: "私のFacebook",
+                artist: "SNSアカウント", image: "./facebookicon.png", link: "https://www.facebook.com/share/19rjzq1cc8/?mibextid=wwXIfr",
+                details:
+                    "Facebookの私のページです。日常の出来事や、イベント情報などを投稿しています。ぜひフォローしてください！\n最近は動かせていないので積極的に動かそうと思います💦\niUの情報や活動を世間に伝えていこうと思います！"
+            }, {
+                title: "私のInstagram", artist: "フォローしてね！", image: "./instagramicon.png", link:
+                    "https://www.instagram.com/o6y__4?igsh=YjE5cmR6NmUzYWkw&utm_source=qr", details:
+                    "Instagramでは、主にストーリーを投稿しています。\n滅多には投稿しませんが、旅行など休暇の様子をあげています。\nプライベートが気になる方は是非！"
+            }, {
+                title: "私のTik Tok",
+                artist: "o6y__a", image: "./tiktokicon.png", link: "https://www.tiktok.com/@o6y__4?_r=1&_t=ZS-91YHvGS7Am4", details:
+                    "TikTokでは、面白いをどれだけ短く伝えられるかが大切だと思います。\n最近は動画編集などに挑戦しているため、面白いと感じた構図を投稿して世間からの評価を見ています。またダンス動画も投稿していてダンスの素晴らしさを伝えようと考えています。\n僕の楽しいを具現化したようなアカウントなので興味を持ってもらえたらフォローしていただけると幸いです！"
+            }, {
+                title: "僕の推し『TWICE』", artist: "TWICE", image: "https://img.hankyung.com/photo/202509/BF.41886386.1.jpg", link:
+                    "https://www.twicejapan.com/", details:
+                    "僕が大好きなK-popアイドルであるTWICEです。\nダンスの揃い具合が素晴らしく、メンバーのそれぞれの個性が違うことでより味を出しているこのグループ、プライベートの動画など見ていてとても面白いです！\n僕の最推しはtzuyuです。\nマンネ(末っ子)であり、グループみんなから愛され可愛らしいですが、ライブで魅せるあのギャップに惚れました。\n興味を持たれた方、是非一緒にライブに行きましょう！\n音楽、ダンスの素晴らしさ、そして推しが与えてくれる明日への活力を貰いに行きましょう！",
+            }]; const playerImage = document.getElementById('player-image'); const imageArea =
+                document.querySelector('.image-area'); const playerTitle = document.getElementById('player-title'); const playerArtist =
+                    document.querySelector('.artist'); const playPauseButton = document.getElementById('play-pause-button'); const
+                        playPauseIcon = playPauseButton.querySelector('.material-icons'); const prevButton =
+                            document.getElementById('prev-button'); const nextButton = document.getElementById('next-button'); const progressBarFill
+                                = document.getElementById('progress-bar-fill'); const currentTimeElement = document.getElementById('current-time');
+            const shareButton = document.getElementById('share-button'); const detailTitle =
+                document.getElementById('detail-title'); const detailContent = document.getElementById('detail-content'); let
+                    currentContentIndex = 0; let isPlaying = false; const autoAdvanceDuration = 10000; const updateInterval = 100; let
+                        progressInterval; let elapsedTime = 0; function updateContent() {
+                            const content = contents[currentContentIndex];
+                            playerImage.src = content.image; playerTitle.textContent = content.title; playerArtist.textContent = content.artist;
+                            detailTitle.textContent = content.title + "の詳細"; detailContent.textContent = content.details; imageArea.style.cursor =
+                                'pointer'; imageArea.onclick = () => { if (isPlaying) { pausePlaying(); } window.open(content.link, '_blank'); };
+                        }
+            function updateProgressBar() {
+                elapsedTime += updateInterval; const progressPercentage = (elapsedTime /
+                    autoAdvanceDuration) * 100; progressBarFill.style.width = `${Math.min(progressPercentage, 100)}%`;
+                currentTimeElement.textContent = formatTime(Math.floor(elapsedTime / 1000)); if (elapsedTime >= autoAdvanceDuration) {
+                    nextContent();
+                }
+            } function formatTime(seconds) {
+                const min = Math.floor(seconds / 60); const sec = seconds % 60; return
+                `${min}:${sec < 10 ? '0' : ''}${sec}`;
+            } function startPlaying() {
+                if (isPlaying) return; isPlaying = true;
+                playPauseIcon.textContent = 'pause'; clearInterval(progressInterval); progressInterval = setInterval(updateProgressBar,
+                    updateInterval);
+            } function pausePlaying() {
+                if (!isPlaying) return; isPlaying = false;
+                playPauseIcon.textContent = 'play_arrow'; clearInterval(progressInterval);
+            } function nextContent() {
+                currentContentIndex = (currentContentIndex + 1) % contents.length; const wasPlaying = isPlaying; resetPlayback();
+                updateContent(); if (wasPlaying) { startPlaying(); }
+            } function prevContent() {
+                currentContentIndex = (currentContentIndex - 1 + contents.length) % contents.length; const wasPlaying = isPlaying;
+                resetPlayback(); updateContent(); if (wasPlaying) { startPlaying(); }
+            } function resetPlayback() {
+                clearInterval(progressInterval); elapsedTime = 0; progressBarFill.style.width = '0%';
+                currentTimeElement.textContent = '0:00'; if (isPlaying) { isPlaying = false; playPauseIcon.textContent = 'play_arrow'; }
+            } playPauseButton.addEventListener('click', () => { if (isPlaying) { pausePlaying(); } else { startPlaying(); } });
+            prevButton.addEventListener('click', prevContent); nextButton.addEventListener('click', nextContent);
+            shareButton.addEventListener('click', async () => {
+                const currentContent = contents[currentContentIndex]; const
+                    shareData = {
+                        title: currentContent.title, text: `「${currentContent.title}」をチェック！\nアーティスト:${currentContent.artist}\n${currentContent.details.substring(0, 100)}...\n`, // 本文 
+                        url: window.location.href
+                    };
+                if (navigator.share) {
+                    try {
+                        await navigator.share(shareData); console.log('コンテンツが正常に共有されました');
+                    } catch (err) {
+                        console.error('共有に失敗しました:', err);
+                    }
+                } else { alert('お使いのブラウザは共有機能に対応していません。'); }
+            }); updateContent();
+            pausePlaying();
+        });
+    </script>
+</body>
+
+</html>

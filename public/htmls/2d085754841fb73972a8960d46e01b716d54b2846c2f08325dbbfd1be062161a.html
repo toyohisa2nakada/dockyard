@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <title>完全版！料理タイピング</title>
+    <style>
+        body {
+            font-family: 'Courier New', sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #1a1a1a;
+            color: #fff;
+        }
+
+        #game-container {
+            text-align: center;
+            width: 650px;
+            padding: 40px;
+            background: #222;
+            border-radius: 15px;
+            border: 2px solid #444;
+            position: relative;
+        }
+
+        #dish-name {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            color: #f39c12;
+        }
+
+        #typing-display {
+            font-size: 2.5rem;
+            letter-spacing: 0.15rem;
+            min-height: 1.5em;
+        }
+
+        .typed {
+            color: #2ecc71;
+        }
+
+        .current {
+            background-color: #f1c40f;
+            color: #000;
+            padding: 0 2px;
+        }
+
+        #stats {
+            margin-top: 30px;
+            font-size: 1.4rem;
+            color: #aaa;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+        }
+
+        #start-button {
+            padding: 15px 40px;
+            font-size: 1.5rem;
+            background: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+
+        #skip-button {
+            padding: 8px 15px;
+            font-size: 1rem;
+            background: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="game-container">
+        <div id="dish-name">料理タイピング</div>
+        <div id="typing-display">準備はいい？</div>
+
+        <div id="stats">
+            <span>スコア: <span id="score">0</span></span>
+            <span>残り: <span id="timer">60</span>秒</span>
+            <button id="skip-button">スキップ</button>
+        </div>
+
+        <button id="start-button">ゲーム開始</button>
+    </div>
+
+    <script>
+        // 濁音・半濁音・拗音を含む完全版辞書
+        const romanDict = {
+            'あ': ['a'], 'い': ['i'], 'う': ['u'], 'え': ['e'], 'お': ['o'],
+            'か': ['ka'], 'き': ['ki'], 'く': ['ku'], 'け': ['ke'], 'こ': ['ko'],
+            'さ': ['sa'], 'し': ['si', 'shi'], 'す': ['su'], 'せ': ['se'], 'そ': ['so'],
+            'た': ['ta'], 'ち': ['ti', 'chi'], 'つ': ['tu', 'tsu'], 'て': ['te'], 'と': ['to'],
+            'な': ['na'], 'に': ['ni'], 'ぬ': ['nu'], 'ね': ['ne'], 'の': ['no'],
+            'は': ['ha'], 'ひ': ['hi'], 'ふ': ['hu', 'fu'], 'へ': ['he'], 'ほ': ['ho'],
+            'ま': ['ma'], 'み': ['mi'], 'む': ['mu'], 'め': ['me'], 'も': ['mo'],
+            'や': ['ya'], 'ゆ': ['yu'], 'よ': ['yo'],
+            'ら': ['ra'], 'り': ['ri'], 'る': ['ru'], 'れ': ['re'], 'ろ': ['ro'],
+            'わ': ['wa'], 'を': ['wo'], 'ん': ['n', 'nn'],
+            'が': ['ga'], 'ぎ': ['gi'], 'ぐ': ['gu'], 'げ': ['ge'], 'ご': ['go'],
+            'ざ': ['za'], 'じ': ['zi', 'ji'], 'ず': ['zu'], 'ぜ': ['ze'], 'ぞ': ['zo'],
+            'だ': ['da'], 'ぢ': ['di'], 'づ': ['du'], 'で': ['de'], 'ど': ['do'],
+            'ば': ['ba'], 'び': ['bi'], 'ぶ': ['bu'], 'べ': ['be'], 'ぼ': ['bo'],
+            'ぱ': ['pa'], 'ぴ': ['pi'], 'ぷ': ['pu'], 'ぺ': ['pe'], 'ぽ': ['po'],
+            'ちゃ': ['cha', 'tya'], 'ちゅ': ['chu', 'tyu'], 'ちょ': ['cho', 'tyo'],
+            'しゃ': ['sha', 'sya'], 'しゅ': ['shu', 'syu'], 'しょ': ['sho', 'syo'],
+            'じゃ': ['ja', 'zya'], 'じゅ': ['ju', 'zyu'], 'じょ': ['jo', 'zyo'],
+            'ぎゃ': ['ぎゃ'], 'ぎゅ': ['gyu'], 'ぎょ': ['gyo'],
+            'ひゃ': ['hya'], 'ひゅ': ['hyu'], 'ひょ': ['hyo'],
+            'っ': ['xtu', 'ltu', 'ltsu'], 'ー': ['-']
+        };
+
+        const dishList = [
+            { display: "寿司", kana: ["す", "し"] },
+            { display: "天ぷら", kana: ["て", "ん", "ぷ", "ら"] },
+            { display: "ラーメン", kana: ["ら", "ー", "め", "ん"] },
+            { display: "カレー", kana: ["か", "れ", "ー"] },
+            { display: "かつ丼", kana: ["か", "つ", "ど", "ん"] },
+            { display: "そば", kana: ["そ", "ば"] },
+            { display: "茶碗蒸し", kana: ["ちゃ", "わ", "ん", "む", "し"] },
+            { display: "おにぎり", kana: ["お", "に", "ぎ", "り"] },
+            { display: "牛丼", kana: ["ぎゅ", "う", "ど", "ん"] },
+            { display: "肉じゃが", kana: ["に", "く", "じゃ", "が"] },
+            { display: "ハンバーグ", kana: ["は", "ん", "ば", "ー", "ぐ"] }
+        ];
+
+        let score = 0, timeLeft = 60, timerInterval, currentKanaArray = [], kanaIndex = 0, typedInKana = "", lastDishIndex = -1;
+
+        const dishNameElem = document.getElementById('dish-name'), typingElem = document.getElementById('typing-display'),
+            scoreElem = document.getElementById('score'), timerElem = document.getElementById('timer'),
+            startBtn = document.getElementById('start-button'), skipBtn = document.getElementById('skip-button');
+
+        function nextDish() {
+            let randomIndex;
+            do { randomIndex = Math.floor(Math.random() * dishList.length); } while (randomIndex === lastDishIndex);
+            lastDishIndex = randomIndex;
+            const dish = dishList[randomIndex];
+            dishNameElem.textContent = dish.display;
+            currentKanaArray = dish.kana;
+            kanaIndex = 0; typedInKana = "";
+            render();
+        }
+
+        function render() {
+            let html = "";
+            for (let i = 0; i < kanaIndex; i++) html += `<span class="typed">${currentKanaArray[i]}</span>`;
+            if (kanaIndex < currentKanaArray.length) {
+                html += `<span class="current">${currentKanaArray[kanaIndex]}</span>`;
+                for (let i = kanaIndex + 1; i < currentKanaArray.length; i++) html += `<span>${currentKanaArray[i]}</span>`;
+            }
+            typingElem.innerHTML = html;
+        }
+
+        function handleKeydown(e) {
+            if (!/^[a-z-]$/.test(e.key)) return;
+            const targetKana = currentKanaArray[kanaIndex];
+            let patterns = romanDict[targetKana] || [targetKana];
+            const inputAttempt = typedInKana + e.key;
+            const matchedPattern = patterns.find(p => p.startsWith(inputAttempt));
+
+            if (matchedPattern) {
+                typedInKana = inputAttempt;
+                score++; scoreElem.textContent = score;
+                if (patterns.includes(typedInKana)) {
+                    kanaIndex++; typedInKana = "";
+                    if (kanaIndex >= currentKanaArray.length) nextDish();
+                }
+                render();
+            }
+        }
+
+        function startGame() {
+            score = 0; scoreElem.textContent = score;
+            timeLeft = 60; timerElem.textContent = timeLeft;
+            startBtn.style.display = "none"; skipBtn.style.display = "inline-block";
+            window.addEventListener('keydown', handleKeydown);
+            nextDish();
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                timeLeft--; timerElem.textContent = timeLeft;
+                if (timeLeft <= 0) endGame();
+            }, 1000);
+        }
+
+        function endGame() {
+            clearInterval(timerInterval); timerInterval = null;
+            window.removeEventListener('keydown', handleKeydown);
+            alert("終了！スコア: " + score);
+            startBtn.style.display = "block"; skipBtn.style.display = "none";
+            typingElem.textContent = "準備はいい？";
+        }
+
+        startBtn.addEventListener('click', startGame);
+        skipBtn.addEventListener('click', () => { if (timerInterval) nextDish(); });
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>HealthyMe — 完全版 (Demo)</title>
+
+    <!-- Google Font (optional) -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        :root {
+            --bg: #f6fff9;
+            --card: #ffffff;
+            --mint: #cfeee6;
+            --mint-strong: #8ed6bf;
+            --lav: #e9e6ff;
+            --text: #2b3a33;
+            --accent: #4fc3f7;
+            --soft: #f3f7f5;
+            --glass: rgba(255, 255, 255, 0.8);
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
+        body {
+            font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", sans-serif;
+            background: linear-gradient(0deg, var(--bg), white);
+            color: var(--text);
+            margin: 0;
+            padding: 24px;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .app {
+            max-width: 980px;
+            margin: 0 auto;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+
+        .logo {
+            width: 64px;
+            height: 64px;
+            border-radius: 16px;
+            background: linear-gradient(135deg, var(--mint), var(--lav));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 6px 16px rgba(50, 50, 60, 0.06);
+            font-weight: 700;
+            color: #fff;
+            font-size: 28px;
+        }
+
+        header h1 {
+            font-size: 20px;
+            margin: 0
+        }
+
+        header p {
+            margin: 0;
+            color: #6b7b73;
+            font-size: 13px
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 18px;
+            margin-bottom: 18px;
+        }
+
+        /* Card */
+        .card {
+            background: var(--card);
+            border-radius: 14px;
+            padding: 16px;
+            box-shadow: 0 6px 18px rgba(30, 40, 30, 0.04);
+        }
+
+        /* Top big card — today's status */
+        .today {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .row {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .metric-card {
+            flex: 1;
+            background: linear-gradient(180deg, var(--glass), #fff);
+            border-radius: 12px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            text-align: left;
+        }
+
+        .metric-title {
+            font-size: 13px;
+            color: #5e6a63
+        }
+
+        .metric-value {
+            font-weight: 700;
+            font-size: 18px
+        }
+
+        /* big cup */
+        .cup-wrap {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            padding: 12px;
+        }
+
+        .cup {
+            width: 160px;
+            height: 200px;
+            border-radius: 12px;
+            border: 6px solid rgba(80, 180, 160, 0.12);
+            background: linear-gradient(#fff, #f9fffb);
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .water-level {
+            width: 100%;
+            height: 30%;
+            background: linear-gradient(#9fe9d5, #c8f3e8);
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            color: #20624f;
+            font-size: 20px;
+            transition: height 600ms cubic-bezier(.2, .8, .2, 1);
+        }
+
+        .cup-label {
+            font-size: 14px;
+            color: #2f5e54
+        }
+
+        /* buttons */
+        .btns {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: center
+        }
+
+        .btn {
+            border: none;
+            padding: 10px 14px;
+            border-radius: 999px;
+            background: var(--mint-strong);
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 6px 12px rgba(80, 140, 120, 0.08);
+        }
+
+        .btn.secondary {
+            background: var(--lav);
+            color: #3b3a49
+        }
+
+        .btn.ghost {
+            background: transparent;
+            border: 1px solid #e8f2ee;
+            color: var(--text)
+        }
+
+        /* message bubble */
+        .bubble {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            padding: 10px;
+            border-radius: 12px;
+            background: linear-gradient(90deg, #ffffff, #f6fff9);
+            box-shadow: 0 8px 18px rgba(60, 80, 70, 0.04);
+            font-weight: 600;
+            color: #235448;
+        }
+
+        .mascot {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: linear-gradient(#e7dfff, #f5e7ff);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            color: #6a4ca0;
+            font-size: 20px;
+        }
+
+        /* chart area */
+        .chart-area {
+            display: flex;
+            flex-direction: column;
+            gap: 10px
+        }
+
+        .tabs {
+            display: flex;
+            gap: 8px
+        }
+
+        .tab {
+            padding: 8px 12px;
+            border-radius: 999px;
+            background: var(--soft);
+            cursor: pointer
+        }
+
+        .tab.active {
+            background: var(--mint-strong);
+            color: white
+        }
+
+        /* history list */
+        .history-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 220px;
+            overflow: auto;
+            padding-right: 6px
+        }
+
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            border-radius: 10px;
+            background: linear-gradient(#fff, #fcfffb)
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 6px 8px;
+            border-radius: 8px;
+            background: linear-gradient(#f6f6ff, #fff);
+            font-weight: 700;
+            font-size: 13px
+        }
+
+        footer {
+            margin-top: 18px;
+            color: #6b7b73;
+            font-size: 13px;
+            text-align: center
+        }
+
+        /* responsive */
+        @media(max-width:900px) {
+            .grid {
+                grid-template-columns: 1fr
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app">
+        <header>
+            <div class="logo">HM</div>
+            <div>
+                <h1>HealthyMe</h1>
+                <p>こんにちは、関さん 🌿 今日もがんばろう！</p>
+            </div>
+        </header>
+
+        <!-- main grid -->
+        <div class="grid">
+            <!-- Left: Today's status -->
+            <div class="card today">
+                <div class="row">
+                    <div class="metric-card">
+                        <div class="metric-title">水分（今日）</div>
+                        <div class="metric-value" id="todayAmount">0 ml</div>
+                        <div style="font-size:13px;color:#6b7b73" id="remainingText">目標まで 2000 ml</div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-title">歩数（今日）</div>
+                        <div class="metric-value" id="todaySteps">0 歩</div>
+                        <div style="font-size:13px;color:#6b7b73">※擬似データ / 手動取り込み可</div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-title">継続日数</div>
+                        <div class="metric-value" id="streak">0 日連続</div>
+                        <div style="font-size:13px;color:#6b7b73">称号： <span id="titleBadge">—</span></div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="cup-wrap" style="flex:1">
+                        <div class="cup">
+                            <div id="waterLevel" class="water-level">0 ml</div>
+                        </div>
+                        <div class="cup-label" id="cupLabel">目標: 2000 ml</div>
+                    </div>
+
+                    <div style="flex:1.2">
+                        <div class="bubble">
+                            <div class="mascot">🐰</div>
+                            <div id="encourage">今日もいい感じ！まずは一口から😊</div>
+                        </div>
+
+                        <div style="height:10px"></div>
+                        <div class="btns">
+                            <button class="btn" onclick="addWater(200)">+200ml</button>
+                            <button class="btn" onclick="addWater(500)">+500ml</button>
+                            <button class="btn secondary" onclick="customAdd()">＋カスタム</button>
+                            <button class="btn ghost" onclick="resetToday()">リセット</button>
+                        </div>
+
+                        <div style="height:12px"></div>
+                        <div style="display:flex;gap:8px">
+                            <button class="tab" onclick="remindNow()">リマインダーを試す</button>
+                            <button class="tab" onclick="simulateStepImport()">歩数取り込み（擬似）</button>
+                            <button class="tab" onclick="openHistoryModal()">履歴を見る</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Charts & weekly/monthly -->
+            <div class="card chart-area">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                    <div style="font-weight:700">グラフ</div>
+                    <div style="font-size:13px;color:#6b7b73">1週間 / 1か月</div>
+                </div>
+
+                <div class="tabs" style="margin-bottom:8px">
+                    <div id="tabWeek" class="tab active" onclick="showTab('week')">1週間</div>
+                    <div id="tabMonth" class="tab" onclick="showTab('month')">1か月</div>
+                </div>
+
+                <div style="min-height:260px;display:flex;flex-direction:column;gap:8px">
+                    <canvas id="weeklyChart" style="height:200px"></canvas>
+                    <canvas id="monthlyChart" style="height:200px;display:none"></canvas>
+                </div>
+
+                <div style="margin-top:8px;display:flex;justify-content:space-between;align-items:center">
+                    <div style="font-size:13px;color:#6b7b73">過去の平均と比較してみよう</div>
+                    <div id="avgText" style="font-weight:700;color:#235448">平均: — ml</div>
+                </div>
+
+                <div style="height:12px"></div>
+                <div class="history-list card" id="miniHistory">
+                    <!-- small history items -->
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            HealthyMe — かわいく続けられる習慣づくり 🌿
+        </footer>
+    </div>
+
+    <!-- Hidden modal-like simple history (implemented inline) -->
+    <div id="historyModal"
+        style="position:fixed;left:0;top:0;width:100%;height:100%;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.35);">
+        <div
+            style="width:90%;max-width:720px;background:white;border-radius:12px;padding:18px;box-shadow:0 18px 36px rgba(30,40,30,0.2);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+                <h3 style="margin:0">履歴（過去30日）</h3>
+                <button class="btn ghost" onclick="closeHistoryModal()">閉じる</button>
+            </div>
+            <div style="display:flex;gap:12px">
+                <div style="flex:1">
+                    <div id="historyList" style="max-height:320px;overflow:auto"></div>
+                </div>
+                <div style="width:300px">
+                    <h4 style="margin-top:0">称号コレクション</h4>
+                    <div id="badges" style="display:flex;flex-direction:column;gap:8px"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* -----------------------
+          Config / State
+        ------------------------*/
+        const GOAL_ML = 2000; // デフォルト目標（あとで設定UIを作ることも可能）
+        const STORAGE_KEY = "HealthyMe_data_v1"; // 保存キー
+        const REMINDER_INTERVAL_MIN = 3 * 60 * 60 * 1000; // 3時間（デモは short することも）
+        let state = {
+            // structure: history: { 'YYYY-MM-DD': {ml: number, steps: number} }, todayKey: 'YYYY-MM-DD'
+            history: {},
+            todayKey: null
+        };
+
+        /* -----------------------
+          Utilities
+        ------------------------*/
+        function isoDate(d = new Date()) {
+            return d.toISOString().slice(0, 10);
+        }
+
+        function loadState() {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (raw) {
+                try {
+                    state = JSON.parse(raw);
+                } catch (e) {
+                    console.error("parse error", e);
+                    state = { history: {}, todayKey: isoDate() };
+                }
+            } else {
+                state = { history: {}, todayKey: isoDate() };
+            }
+            // ensure todayKey exists
+            const today = isoDate();
+            if (!state.todayKey || state.todayKey !== today) {
+                state.todayKey = today;
+                if (!state.history[today]) state.history[today] = { ml: 0, steps: 0 };
+                saveState();
+            } else {
+                if (!state.history[state.todayKey]) state.history[state.todayKey] = { ml: 0, steps: 0 };
+            }
+        }
+
+        function saveState() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        }
+
+        /* -----------------------
+          UI Update Functions
+        ------------------------*/
+        function updateUI() {
+            const today = state.history[state.todayKey] || { ml: 0, steps: 0 };
+            document.getElementById("todayAmount").innerText = `${today.ml} ml`;
+            document.getElementById("todaySteps").innerText = `${today.steps} 歩`;
+            document.getElementById("cupLabel").innerText = `目標: ${GOAL_ML} ml`;
+            updateWaterLevel(today.ml);
+            updateEncouragement();
+            updateStreakAndBadges();
+            buildMiniHistory();
+            updateCharts();
+        }
+
+        function updateWaterLevel(ml) {
+            const percent = Math.min(100, Math.round((ml / GOAL_ML) * 100));
+            const levelEl = document.getElementById("waterLevel");
+            levelEl.style.height = Math.max(6, percent) + "%"; // min height
+            levelEl.innerText = `${ml} ml`;
+            document.getElementById("remainingText").innerText = `目標まで ${Math.max(0, GOAL_ML - ml)} ml`;
+        }
+
+        /* Encouragement messages that vary by percent */
+        function updateEncouragement() {
+            const today = state.history[state.todayKey] || { ml: 0 };
+            const percent = (today.ml / GOAL_ML) * 100;
+            const msgEl = document.getElementById("encourage");
+            const mascot = document.querySelector(".mascot").innerText || "🐰";
+            let msg = "今日もいい感じ！まずは一口から😊";
+            if (percent === 0) msg = "まずは1杯から始めよう💧";
+            else if (percent < 25) msg = "いいスタート！まずはその調子✨";
+            else if (percent < 50) msg = "順調！半分まで来たよ🚶";
+            else if (percent < 75) msg = "もうすぐ3/4！ナイスチャージ🔥";
+            else if (percent < 100) msg = "あと少し！ラストスパート💪";
+            else msg = "目標達成おめでとう🎉 よく頑張ったね！";
+            // small variation with time-of-day
+            const hour = new Date().getHours();
+            if (hour < 12) msg += " 朝の一杯は集中力アップ☀️";
+            msgEl.innerText = `${msg}`;
+        }
+
+        /* Streak / badges */
+        function updateStreakAndBadges() {
+            // compute consecutive days up to today with ml > 0
+            const keys = Object.keys(state.history).sort().reverse(); // newest-first
+            let streak = 0;
+            let d = new Date(state.todayKey);
+            for (let i = 0; i < 365; i++) {
+                const key = isoDate(d);
+                const rec = state.history[key];
+                if (rec && rec.ml > 0) streak++;
+                else break;
+                d.setDate(d.getDate() - 1);
+            }
+            document.getElementById("streak").innerText = `${streak} 日連続`;
+            const title = document.getElementById("titleBadge");
+            let titleText = "—";
+            if (streak >= 30) titleText = "Hydration Legend";
+            else if (streak >= 14) titleText = "Hydration Master";
+            else if (streak >= 7) titleText = "Hydration Pro";
+            else if (streak >= 3) titleText = "Getting Warmed";
+            title.innerText = titleText;
+
+            // badges list
+            const badgesEl = document.getElementById("badges");
+            if (badgesEl) {
+                badgesEl.innerHTML = "";
+                const items = [
+                    { name: "Hydration Pro (3日)", got: streak >= 3 },
+                    { name: "Hydration Master (14日)", got: streak >= 14 },
+                    { name: "Hydration Legend (30日)", got: streak >= 30 }
+                ];
+                items.forEach(it => {
+                    const div = document.createElement("div");
+                    div.className = "history-item";
+                    div.innerHTML = `<div>${it.name}</div><div class="badge">${it.got ? "獲得" : "—"}</div>`;
+                    badgesEl.appendChild(div);
+                });
+            }
+        }
+
+        /* Build mini-history items (latest 7 days) */
+        function buildMiniHistory() {
+            const mini = document.getElementById("miniHistory");
+            mini.innerHTML = "";
+            const days = getPastNDays(7);
+            days.forEach(d => {
+                const rec = state.history[d] || { ml: 0, steps: 0 };
+                const el = document.createElement("div");
+                el.className = "history-item";
+                el.innerHTML = `<div style="font-weight:700">${d.slice(5)}</div><div style="text-align:right">${rec.ml} ml<br><small style="color:#6b7b73">${rec.steps} 歩</small></div>`;
+                mini.appendChild(el);
+            });
+        }
+
+        /* -----------------------
+          Interaction handlers
+        ------------------------*/
+        function addWater(amount) {
+            const today = state.todayKey;
+            if (!state.history[today]) state.history[today] = { ml: 0, steps: 0 };
+            state.history[today].ml = Math.max(0, state.history[today].ml + amount);
+            saveState();
+            updateUI();
+            // tiny confetti-like effect (simple)
+            flashBubble();
+        }
+
+        function customAdd() {
+            const val = prompt("何ml追加しますか？（数字のみ）", "300");
+            if (!val) return;
+            const n = parseInt(val);
+            if (isNaN(n) || n <= 0) { alert("正しい数値を入れてください"); return; }
+            addWater(n);
+        }
+
+        function resetToday() {
+            if (!confirm("今日の記録をリセットしますか？")) return;
+            state.history[state.todayKey].ml = 0;
+            saveState();
+            updateUI();
+        }
+
+        /* Steps simulation / manual import */
+        function simulateStepImport() {
+            const simulated = Math.floor((Math.random() * 4000) + 1000);
+            const today = state.todayKey;
+            if (!state.history[today]) state.history[today] = { ml: 0, steps: 0 };
+            state.history[today].steps = simulated;
+            saveState();
+            updateUI();
+            alert(`歩数を取り込みました： ${simulated} 歩（擬似データ）`);
+        }
+
+        /* Reminders (Notification API) */
+        function remindNow() {
+            // prefer Notification API
+            if ("Notification" in window) {
+                if (Notification.permission === "granted") {
+                    showNotification("HealthyMe", "今日は水を飲みましたか？ちょっと一杯どう？💧");
+                } else if (Notification.permission !== "denied") {
+                    Notification.requestPermission().then(p => {
+                        if (p === "granted") showNotification("HealthyMe", "リマインダーを有効にしました！");
+                        else alert("通知が許可されていません。画面内通知を表示します。");
+                    });
+                } else {
+                    alert("通知がブロックされています。ブラウザの設定から許可してください。");
+                }
+            } else {
+                alert("通知に対応していないブラウザです。");
+            }
+        }
+        function showNotification(title, body) {
+            try {
+                new Notification(title, { body, icon: "" });
+            } catch (e) {
+                // fallback
+                alert(body);
+            }
+        }
+        function flashBubble() {
+            const bub = document.querySelector(".bubble");
+            bub.style.transform = "translateY(-6px)";
+            setTimeout(() => bub.style.transform = "", 250);
+        }
+
+        /* -----------------------
+          History modal
+        ------------------------*/
+        function openHistoryModal() {
+            const modal = document.getElementById("historyModal");
+            const list = document.getElementById("historyList");
+            list.innerHTML = "";
+            const keys = Object.keys(state.history).sort().reverse().slice(0, 30);
+            keys.forEach(k => {
+                const rec = state.history[k];
+                const div = document.createElement("div");
+                div.className = "history-item";
+                div.style.marginBottom = "8px";
+                div.innerHTML = `<div style="font-weight:700">${k}</div><div style="text-align:right">${rec.ml} ml<br><small style="color:#6b7b73">${rec.steps} 歩</small></div>`;
+                list.appendChild(div);
+            });
+            modal.style.display = "flex";
+        }
+        function closeHistoryModal() { document.getElementById("historyModal").style.display = "none"; }
+
+        /* -----------------------
+          Charts
+        ------------------------*/
+        let weeklyChart = null, monthlyChart = null;
+        function getPastNDays(n) {
+            const res = [];
+            const d = new Date(state.todayKey);
+            for (let i = n - 1; i >= 0; i--) {
+                const x = new Date(d);
+                x.setDate(d.getDate() - i);
+                res.push(isoDate(x));
+            }
+            return res;
+        }
+
+        function updateCharts() {
+            // weekly
+            const weekKeys = getPastNDays(7);
+            const weekLabels = weekKeys.map(k => k.slice(5));
+            const weekData = weekKeys.map(k => (state.history[k] ? state.history[k].ml : 0));
+            const avg = Math.round((weekData.reduce((a, b) => a + b, 0) / 7) || 0);
+            document.getElementById("avgText").innerText = `平均: ${avg} ml`;
+
+            if (weeklyChart) {
+                weeklyChart.data.labels = weekLabels;
+                weeklyChart.data.datasets[0].data = weekData;
+                weeklyChart.update();
+            } else {
+                const ctx = document.getElementById("weeklyChart").getContext('2d');
+                weeklyChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: weekLabels,
+                        datasets: [{
+                            label: '摂取量 (ml)',
+                            data: weekData,
+                            backgroundColor: ['#bfeadf', '#dbefff', '#f7d8ee', '#fbeae9', '#e6f3ff', '#e8e0ff', '#e0fff2']
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: { legend: { display: false } },
+                        scales: { y: { beginAtZero: true, max: GOAL_ML * 1.5 } }
+                    }
+                });
+            }
+
+            // monthly (last 30 days)
+            const monthKeys = getPastNDays(30);
+            const monthLabels = monthKeys.map((k, i) => `${k.slice(8)}日`);
+            const monthData = monthKeys.map(k => (state.history[k] ? state.history[k].ml : 0));
+            if (monthlyChart) {
+                monthlyChart.data.labels = monthLabels;
+                monthlyChart.data.datasets[0].data = monthData;
+                monthlyChart.update();
+            } else {
+                const ctx2 = document.getElementById("monthlyChart").getContext('2d');
+                monthlyChart = new Chart(ctx2, {
+                    type: 'line',
+                    data: {
+                        labels: monthLabels,
+                        datasets: [{
+                            label: '1日ごとの摂取量',
+                            data: monthData,
+                            borderColor: '#4fc3f7',
+                            backgroundColor: 'rgba(79,195,247,0.12)',
+                            fill: true,
+                            tension: 0.35,
+                            pointRadius: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: { legend: { display: false } },
+                        scales: { y: { beginAtZero: true, max: GOAL_ML * 1.5 } }
+                    }
+                });
+            }
+        }
+
+        /* Tab switch */
+        function showTab(name) {
+            document.getElementById("tabWeek").classList.toggle("active", name === "week");
+            document.getElementById("tabMonth").classList.toggle("active", name === "month");
+            document.getElementById("weeklyChart").style.display = name === "week" ? "block" : "none";
+            document.getElementById("monthlyChart").style.display = name === "month" ? "block" : "none";
+        }
+
+        /* -----------------------
+          Init
+        ------------------------*/
+        function init() {
+            loadState();
+            updateUI();
+            // set a daily rollover check at midnight: calculates ms until next midnight
+            const now = new Date();
+            const msToMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 2) - now;
+            setTimeout(() => {
+                // at midnight, create new today key and ensure it exists
+                state.todayKey = isoDate();
+                if (!state.history[state.todayKey]) state.history[state.todayKey] = { ml: 0, steps: 0 };
+                saveState();
+                updateUI();
+                // then set interval every 24h
+                setInterval(() => {
+                    state.todayKey = isoDate();
+                    if (!state.history[state.todayKey]) state.history[state.todayKey] = { ml: 0, steps: 0 };
+                    saveState();
+                    updateUI();
+                }, 24 * 60 * 60 * 1000);
+            }, msToMidnight);
+
+            // optional periodic reminder (if user wants): use Notification permission
+            // Here we do not auto-schedule noisy reminders; we leave an explicit button.
+        }
+
+        init();
+    </script>
+</body>
+
+</html>

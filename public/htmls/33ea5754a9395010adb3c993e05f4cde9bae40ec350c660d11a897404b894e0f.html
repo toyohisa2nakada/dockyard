@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <title>生成AIチャットボット（プロトタイプ）</title>
+</head>
+
+<body>
+    <h1>生成AIチャットボット</h1>
+    <textarea id="question" rows="4" cols="50" placeholder="質問を入力してください"></textarea><br><br>
+    <button onclick="askAI()">送信</button>
+    <p><strong>回答：</strong></p>
+    <div id="answer"></div>
+
+    <script>
+        async function askAI() {
+            const question = document.getElementById("question").value;
+
+            // 実際にはここで生成AIのAPIを呼び出す
+            // 本プロトタイプでは動作確認用として疑似応答を返す
+
+            const response = "これは生成AIによるサンプル回答です。";
+            document.getElementById("answer").innerText = response;
+        }
+    </script>
+</body>
+
+</html>

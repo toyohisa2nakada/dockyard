@@ -1,0 +1,808 @@
+<!doctype html>
+<html lang="ja">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Many Bricks Breaker-ish (Single HTML)</title>
+    <style>
+        :root {
+            color-scheme: dark;
+        }
+
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans JP", sans-serif;
+            background: #0b1020;
+        }
+
+        .wrap {
+            height: 100%;
+            display: grid;
+            place-items: center;
+            padding: 12px;
+        }
+
+        canvas {
+            background: radial-gradient(1200px 600px at 50% 30%, #16244a 0%, #0b1020 60%, #070a14 100%);
+            border-radius: 18px;
+            box-shadow: 0 18px 60px rgba(0, 0, 0, .55);
+        }
+
+        .hint {
+            max-width: 980px;
+            color: rgba(255, 255, 255, .75);
+            font-size: 12px;
+            line-height: 1.6;
+            margin-top: 10px;
+            text-align: center;
+            user-select: none;
+        }
+
+        .kbd {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, .08);
+            border: 1px solid rgba(255, 255, 255, .12);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <div>
+            <canvas id="game" width="960" height="540"></canvas>
+            <div class="hint">
+                操作：マウス移動（パドル） / クリック（開始・再開） / <span class="kbd">Space</span> ポーズ /
+                <span class="kbd">A</span><span class="kbd">D</span> 左右 / <span class="kbd">R</span> リスタート
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (() => {
+            "use strict";
+
+            // ===== Canvas =====
+            const canvas = document.getElementById("game");
+            const ctx = canvas.getContext("2d");
+
+            const W = canvas.width;
+            const H = canvas.height;
+
+            // ===== Utilities =====
+            const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+            const rand = (a, b) => a + Math.random() * (b - a);
+
+            function weightedChoice(items) {
+                // items: [{value, weight}, ...]
+                let total = 0;
+                for (const it of items) total += it.weight;
+                let r = Math.random() * total;
+                for (const it of items) {
+                    r -= it.weight;
+                    if (r <= 0) return it.value;
+                }
+                return items[items.length - 1].value;
+            }
+
+            function roundRectPath(ctx, x, y, w, h, r) {
+                r = Math.min(r, w / 2, h / 2);
+                ctx.beginPath();
+                ctx.moveTo(x + r, y);
+                ctx.arcTo(x + w, y, x + w, y + h, r);
+                ctx.arcTo(x + w, y + h, x, y + h, r);
+                ctx.arcTo(x, y + h, x, y, r);
+                ctx.arcTo(x, y, x + w, y, r);
+                ctx.closePath();
+            }
+
+            function drawTextShadow(text, x, y, size = 18, align = "left") {
+                ctx.save();
+                ctx.font = `700 ${size}px system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans JP", sans-serif`;
+                ctx.textAlign = align;
+                ctx.textBaseline = "middle";
+                ctx.fillStyle = "rgba(0,0,0,.55)";
+                ctx.fillText(text, x + 2, y + 2);
+                ctx.fillStyle = "rgba(255,255,255,.92)";
+                ctx.fillText(text, x, y);
+                ctx.restore();
+            }
+
+            // ===== Game State =====
+            const state = {
+                running: false,
+                paused: false,
+                gameOver: false,
+                win: false,
+                level: 1,
+                score: 0,
+                lives: 3,
+                combo: 0,
+                lastHitAt: 0,
+                shakeT: 0
+            };
+
+            // ===== Paddle =====
+            const paddle = {
+                w: 140,
+                h: 16,
+                x: W / 2,
+                y: H - 44,
+                speed: 900
+            };
+
+            // ===== Balls =====
+            const balls = [];
+            function spawnBall(x, y, speed, angleRad) {
+                const r = 8;
+                balls.push({
+                    x, y, r,
+                    vx: Math.cos(angleRad) * speed,
+                    vy: Math.sin(angleRad) * speed,
+                    stuck: !state.running,
+                    fireT: 0,
+                    colorT: 0
+                });
+            }
+
+            // ===== Bricks =====
+            let bricks = [];
+            const BR = {
+                rows: 7,
+                cols: 12,
+                top: 72,
+                left: 60,
+                gap: 8,
+                h: 22
+            };
+
+            function brickHPColor(hp) {
+                const palette = {
+                    1: ["#7df9ff", "#2fd5ff"],
+                    2: ["#9cff57", "#34d399"],
+                    3: ["#ffd166", "#fb923c"],
+                    4: ["#ff7aa2", "#f43f5e"],
+                    5: ["#c4b5fd", "#8b5cf6"]
+                };
+                return palette[clamp(hp, 1, 5)];
+            }
+
+            function generateLevel(level) {
+                const cols = BR.cols;
+                const rows = BR.rows + Math.min(3, (level - 1));
+                const totalW = W - BR.left * 2;
+                const bw = (totalW - BR.gap * (cols - 1)) / cols;
+
+                bricks = [];
+                for (let r = 0; r < rows; r++) {
+                    for (let c = 0; c < cols; c++) {
+                        const isGap = (Math.random() < 0.07) || ((r + c + level) % 11 === 0 && Math.random() < 0.4);
+                        if (isGap) continue;
+
+                        const base = 1 + Math.floor((r / 2) + (level - 1) / 2);
+                        const hp = clamp(base + (Math.random() < 0.18 ? 1 : 0), 1, 7);
+                        const x = BR.left + c * (bw + BR.gap);
+                        const y = BR.top + r * (BR.h + BR.gap);
+
+                        bricks.push({
+                            x, y, w: bw, h: BR.h,
+                            hp,
+                            maxHp: hp,
+                            hitFlash: 0,
+                            steel: Math.random() < Math.min(0.06 + level * 0.01, 0.16),
+                            steelT: 0
+                        });
+                    }
+                }
+            }
+
+            // ===== Power-ups =====
+            const drops = [];
+            const POWER_TYPES = [
+                { key: "WIDE", label: "WIDE", desc: "パドル拡張" },
+                { key: "MULTI", label: "MULTI", desc: "マルチボール" },
+                { key: "SLOW", label: "SLOW", desc: "スローモーション" },
+                { key: "FIRE", label: "FIRE", desc: "貫通ボール" },
+                { key: "LIFE", label: "+1", desc: "ライフ+1" }
+            ];
+
+            let timeScale = 1.0;
+            let timeScaleT = 0;
+
+            // ★★★ ここが「出現確率UP」の本体 ★★★
+            // 1) ドロップ自体の確率
+            const DROP_CHANCE = 0.18; // 元 0.12 → 0.18（体感増える）
+
+            // 2) ドロップ種別の重み（MULTI を厚め）
+            //    例：MULTI=3 にすると、WIDE/SLOW/FIRE/LIFE の約3倍選ばれやすい
+            const DROP_WEIGHTS = [
+                { value: "MULTI", weight: 3.2 },
+                { value: "WIDE", weight: 1.3 },
+                { value: "FIRE", weight: 1.1 },
+                { value: "SLOW", weight: 1.1 },
+                { value: "LIFE", weight: 0.9 }
+            ];
+
+            function maybeDrop(brick) {
+                if (Math.random() > DROP_CHANCE) return;
+
+                const type = weightedChoice(DROP_WEIGHTS);
+                drops.push({
+                    x: brick.x + brick.w / 2,
+                    y: brick.y + brick.h / 2,
+                    r: 12,
+                    vy: rand(130, 220),
+                    type,
+                    t: 0
+                });
+            }
+
+            function applyPower(type) {
+                switch (type) {
+                    case "WIDE": {
+                        paddle.w = clamp(paddle.w + 60, 120, 260);
+                        state.score += 50;
+                        break;
+                    }
+                    case "MULTI": {
+                        // 「倍率」は前のまま（増える数）…今回は “出現確率UP” が目的なので触ってません
+                        // もし増える数も上げたい場合は ADD_PER_BALL を増やしてください
+                        const ADD_PER_BALL = 2;
+                        const MAX_BALLS = 12;
+
+                        const current = balls.slice();
+                        if (balls.length >= MAX_BALLS) { state.score += 30; break; }
+
+                        for (const b of current) {
+                            const speed = Math.hypot(b.vx, b.vy);
+                            const baseA = Math.atan2(b.vy, b.vx);
+                            for (let k = 0; k < ADD_PER_BALL; k++) {
+                                if (balls.length >= MAX_BALLS) break;
+                                const a = baseA + rand(-0.35, 0.35);
+                                spawnBall(b.x, b.y, speed * rand(0.95, 1.05), a);
+                                balls[balls.length - 1].stuck = false;
+                            }
+                        }
+                        state.score += 100;
+                        break;
+                    }
+                    case "SLOW": {
+                        timeScale = 0.72;
+                        timeScaleT = 9.5;
+                        state.score += 40;
+                        break;
+                    }
+                    case "FIRE": {
+                        for (const b of balls) b.fireT = Math.max(b.fireT, 7.5);
+                        state.score += 80;
+                        break;
+                    }
+                    case "LIFE": {
+                        state.lives = Math.min(9, state.lives + 1);
+                        state.score += 120;
+                        break;
+                    }
+                }
+            }
+
+            // ===== Input =====
+            const input = {
+                mx: W / 2,
+                usingMouse: true,
+                left: false,
+                right: false
+            };
+
+            canvas.addEventListener("mousemove", (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+                input.mx = clamp(x, 0, W);
+                input.usingMouse = true;
+            });
+
+            canvas.addEventListener("mousedown", () => {
+                if (state.gameOver || state.win) return;
+                if (!state.running) {
+                    state.running = true;
+                    for (const b of balls) b.stuck = false;
+                } else if (state.paused) {
+                    state.paused = false;
+                }
+            });
+
+            window.addEventListener("keydown", (e) => {
+                if (e.code === "KeyA" || e.code === "ArrowLeft") { input.left = true; input.usingMouse = false; }
+                if (e.code === "KeyD" || e.code === "ArrowRight") { input.right = true; input.usingMouse = false; }
+                if (e.code === "Space") state.paused = !state.paused;
+                if (e.code === "KeyR") resetAll();
+            });
+
+            window.addEventListener("keyup", (e) => {
+                if (e.code === "KeyA" || e.code === "ArrowLeft") input.left = false;
+                if (e.code === "KeyD" || e.code === "ArrowRight") input.right = false;
+            });
+
+            // ===== Collisions =====
+            function circleRectCollide(cx, cy, r, rx, ry, rw, rh) {
+                const nx = clamp(cx, rx, rx + rw);
+                const ny = clamp(cy, ry, ry + rh);
+                const dx = cx - nx;
+                const dy = cy - ny;
+                const d2 = dx * dx + dy * dy;
+                if (d2 > r * r) return null;
+                const d = Math.sqrt(d2) || 0.0001;
+                return { nx, ny, dx, dy, d };
+            }
+
+            function reflectBallFromRect(ball, rx, ry, rw, rh) {
+                const hit = circleRectCollide(ball.x, ball.y, ball.r, rx, ry, rw, rh);
+                if (!hit) return false;
+
+                const left = Math.abs((ball.x + ball.r) - rx);
+                const right = Math.abs((rx + rw) - (ball.x - ball.r));
+                const top = Math.abs((ball.y + ball.r) - ry);
+                const bottom = Math.abs((ry + rh) - (ball.y - ball.r));
+
+                const minPen = Math.min(left, right, top, bottom);
+
+                if (minPen === left) {
+                    ball.x = rx - ball.r - 0.5;
+                    ball.vx = -Math.abs(ball.vx);
+                } else if (minPen === right) {
+                    ball.x = rx + rw + ball.r + 0.5;
+                    ball.vx = Math.abs(ball.vx);
+                } else if (minPen === top) {
+                    ball.y = ry - ball.r - 0.5;
+                    ball.vy = -Math.abs(ball.vy);
+                } else {
+                    ball.y = ry + rh + ball.r + 0.5;
+                    ball.vy = Math.abs(ball.vy);
+                }
+                return true;
+            }
+
+            // ===== Game Loop =====
+            let last = performance.now();
+
+            function resetAll() {
+                state.running = false;
+                state.paused = false;
+                state.gameOver = false;
+                state.win = false;
+                state.level = 1;
+                state.score = 0;
+                state.lives = 3;
+                state.combo = 0;
+                state.shakeT = 0;
+
+                paddle.w = 140;
+                balls.length = 0;
+                drops.length = 0;
+                timeScale = 1.0;
+                timeScaleT = 0;
+
+                generateLevel(state.level);
+                spawnBall(W / 2, paddle.y - 18, 420, -Math.PI / 2);
+            }
+
+            function nextLevel() {
+                state.level += 1;
+                state.running = false;
+                state.paused = false;
+                state.win = false;
+                state.combo = 0;
+
+                drops.length = 0;
+                balls.length = 0;
+
+                paddle.w = clamp(140 + (state.level - 1) * 10, 140, 220);
+                generateLevel(state.level);
+
+                const speed = 420 + (state.level - 1) * 35;
+                spawnBall(W / 2, paddle.y - 18, speed, -Math.PI / 2);
+            }
+
+            function update(dt) {
+                if (state.paused || state.gameOver || state.win) return;
+
+                if (timeScaleT > 0) {
+                    timeScaleT -= dt;
+                    if (timeScaleT <= 0) timeScale = 1.0;
+                }
+                dt *= timeScale;
+
+                // Paddle
+                if (input.usingMouse) {
+                    paddle.x = clamp(input.mx, paddle.w / 2 + 12, W - paddle.w / 2 - 12);
+                } else {
+                    const dir = (input.right ? 1 : 0) - (input.left ? 1 : 0);
+                    paddle.x = clamp(paddle.x + dir * paddle.speed * dt, paddle.w / 2 + 12, W - paddle.w / 2 - 12);
+                }
+
+                // Bricks state
+                for (const br of bricks) {
+                    if (br.hitFlash > 0) br.hitFlash = Math.max(0, br.hitFlash - dt * 6);
+                    if (br.steel) {
+                        br.steelT += dt;
+                        if (br.steelT > 7.0 + state.level * 0.3) br.steel = false;
+                    }
+                }
+
+                // Balls
+                for (let i = balls.length - 1; i >= 0; i--) {
+                    const b = balls[i];
+
+                    if (b.fireT > 0) b.fireT = Math.max(0, b.fireT - dt);
+                    b.colorT = Math.max(0, b.colorT - dt);
+
+                    if (b.stuck) {
+                        b.x = paddle.x;
+                        b.y = paddle.y - 18;
+                        continue;
+                    }
+
+                    b.x += b.vx * dt;
+                    b.y += b.vy * dt;
+
+                    // Walls
+                    if (b.x - b.r < 8) { b.x = 8 + b.r; b.vx = Math.abs(b.vx); }
+                    if (b.x + b.r > W - 8) { b.x = W - 8 - b.r; b.vx = -Math.abs(b.vx); }
+                    if (b.y - b.r < 8) { b.y = 8 + b.r; b.vy = Math.abs(b.vy); }
+
+                    // Bottom
+                    if (b.y - b.r > H + 20) {
+                        balls.splice(i, 1);
+                        continue;
+                    }
+
+                    // Paddle collision
+                    const prx = paddle.x - paddle.w / 2;
+                    const pry = paddle.y - paddle.h / 2;
+                    if (circleRectCollide(b.x, b.y, b.r, prx, pry, paddle.w, paddle.h)) {
+                        if (b.vy > 0) {
+                            const rel = (b.x - paddle.x) / (paddle.w / 2);
+                            const speed = Math.hypot(b.vx, b.vy);
+                            const angle = (-Math.PI / 2) + rel * (Math.PI * 0.38);
+                            b.vx = Math.cos(angle) * speed;
+                            b.vy = Math.sin(angle) * speed;
+                            b.y = pry - b.r - 0.5;
+                            state.combo = 0;
+                        }
+                    }
+
+                    // Brick collisions
+                    let hitSomething = false;
+                    for (let j = bricks.length - 1; j >= 0; j--) {
+                        const br = bricks[j];
+                        const didHit = circleRectCollide(b.x, b.y, b.r, br.x, br.y, br.w, br.h);
+                        if (!didHit) continue;
+
+                        hitSomething = true;
+
+                        if (br.steel) {
+                            reflectBallFromRect(b, br.x, br.y, br.w, br.h);
+                            br.hitFlash = 1;
+                            state.shakeT = 0.12;
+                            break;
+                        }
+
+                        if (b.fireT > 0) {
+                            br.hp -= 1;
+                            br.hitFlash = 1;
+                            state.shakeT = 0.08;
+                            b.colorT = 0.08;
+                            b.vx *= 0.995;
+                            b.vy *= 0.995;
+                        } else {
+                            reflectBallFromRect(b, br.x, br.y, br.w, br.h);
+                            br.hp -= 1;
+                            br.hitFlash = 1;
+                            state.shakeT = 0.10;
+                        }
+
+                        const now = performance.now();
+                        if (now - state.lastHitAt < 1200) state.combo += 1;
+                        else state.combo = 1;
+                        state.lastHitAt = now;
+
+                        state.score += 10 + Math.min(90, state.combo * 3);
+
+                        if (br.hp <= 0) {
+                            maybeDrop(br);
+                            bricks.splice(j, 1);
+                            state.score += 35;
+                        }
+                        break;
+                    }
+
+                    if (hitSomething) {
+                        const s = Math.hypot(b.vx, b.vy);
+                        const target = clamp(420 + (state.level - 1) * 40 + state.combo * 6, 420, 860);
+                        const k = 0.03;
+                        const ns = s + (target - s) * k;
+                        const a = Math.atan2(b.vy, b.vx);
+                        b.vx = Math.cos(a) * ns;
+                        b.vy = Math.sin(a) * ns;
+                    }
+                }
+
+                // Life / respawn
+                if (balls.length === 0) {
+                    state.lives -= 1;
+                    state.combo = 0;
+                    drops.length = 0;
+
+                    if (state.lives <= 0) {
+                        state.gameOver = true;
+                        state.running = false;
+                    } else {
+                        state.running = false;
+                        spawnBall(W / 2, paddle.y - 18, 420 + (state.level - 1) * 35, -Math.PI / 2);
+                    }
+                }
+
+                // Drops update
+                for (let i = drops.length - 1; i >= 0; i--) {
+                    const d = drops[i];
+                    d.t += dt;
+                    d.y += d.vy * dt;
+
+                    const prx = paddle.x - paddle.w / 2;
+                    const pry = paddle.y - paddle.h / 2;
+                    const hit = circleRectCollide(d.x, d.y, d.r, prx, pry, paddle.w, paddle.h);
+                    if (hit) {
+                        applyPower(d.type);
+                        drops.splice(i, 1);
+                        continue;
+                    }
+
+                    if (d.y - d.r > H + 30) drops.splice(i, 1);
+                }
+
+                // Win
+                if (bricks.length === 0 && !state.gameOver) {
+                    state.win = true;
+                    state.running = false;
+                }
+
+                // Shake decay
+                if (state.shakeT > 0) state.shakeT = Math.max(0, state.shakeT - dt);
+            }
+
+            // ===== Render =====
+            function render() {
+                ctx.save();
+
+                if (state.shakeT > 0) {
+                    const mag = 5 * (state.shakeT / 0.12);
+                    ctx.translate(rand(-mag, mag), rand(-mag, mag));
+                }
+
+                ctx.clearRect(0, 0, W, H);
+
+                // Frame
+                ctx.save();
+                ctx.globalAlpha = 0.9;
+                ctx.strokeStyle = "rgba(255,255,255,.12)";
+                ctx.lineWidth = 2;
+                roundRectPath(ctx, 8, 8, W - 16, H - 16, 18);
+                ctx.stroke();
+                ctx.restore();
+
+                // HUD
+                drawTextShadow(`SCORE  ${state.score.toString().padStart(6, "0")}`, 20, 26, 16, "left");
+                drawTextShadow(`LEVEL  ${state.level}`, W / 2, 26, 16, "center");
+                drawTextShadow(`LIVES  ${"❤".repeat(state.lives)}`, W - 20, 26, 16, "right");
+
+                // Bricks
+                for (const br of bricks) {
+                    const [c1, c2] = brickHPColor(br.hp);
+                    const isSteel = br.steel;
+
+                    ctx.save();
+                    const grad = ctx.createLinearGradient(br.x, br.y, br.x + br.w, br.y + br.h);
+                    grad.addColorStop(0, isSteel ? "#a7b0c0" : c1);
+                    grad.addColorStop(1, isSteel ? "#5b667a" : c2);
+                    ctx.fillStyle = grad;
+                    ctx.globalAlpha = isSteel ? 0.95 : 0.92;
+                    roundRectPath(ctx, br.x, br.y, br.w, br.h, 8);
+                    ctx.fill();
+
+                    ctx.globalAlpha = 0.85;
+                    ctx.fillStyle = "rgba(0,0,0,.35)";
+                    ctx.font = "700 12px system-ui, -apple-system, Segoe UI, Roboto, Noto Sans JP, sans-serif";
+                    ctx.textAlign = "center";
+                    ctx.textBaseline = "middle";
+                    ctx.fillText(isSteel ? "STEEL" : br.hp, br.x + br.w / 2 + 1, br.y + br.h / 2 + 1);
+                    ctx.fillStyle = "rgba(255,255,255,.78)";
+                    ctx.fillText(isSteel ? "STEEL" : br.hp, br.x + br.w / 2, br.y + br.h / 2);
+
+                    if (br.hitFlash > 0) {
+                        ctx.globalAlpha = 0.35 * br.hitFlash;
+                        ctx.fillStyle = "white";
+                        roundRectPath(ctx, br.x, br.y, br.w, br.h, 8);
+                        ctx.fill();
+                    }
+
+                    ctx.globalAlpha = 0.5;
+                    ctx.strokeStyle = "rgba(255,255,255,.10)";
+                    ctx.lineWidth = 1;
+                    roundRectPath(ctx, br.x, br.y, br.w, br.h, 8);
+                    ctx.stroke();
+
+                    ctx.restore();
+                }
+
+                // Paddle
+                ctx.save();
+                const px = paddle.x - paddle.w / 2;
+                const py = paddle.y - paddle.h / 2;
+                const pgrad = ctx.createLinearGradient(px, py, px + paddle.w, py + paddle.h);
+                pgrad.addColorStop(0, "rgba(255,255,255,.80)");
+                pgrad.addColorStop(1, "rgba(160,220,255,.85)");
+                ctx.fillStyle = pgrad;
+                ctx.globalAlpha = 0.92;
+                roundRectPath(ctx, px, py, paddle.w, paddle.h, 10);
+                ctx.fill();
+                ctx.globalAlpha = 0.25;
+                ctx.strokeStyle = "white";
+                ctx.lineWidth = 1;
+                roundRectPath(ctx, px, py, paddle.w, paddle.h, 10);
+                ctx.stroke();
+                ctx.restore();
+
+                // Balls
+                for (const b of balls) {
+                    ctx.save();
+                    const g = ctx.createRadialGradient(b.x - 3, b.y - 3, 2, b.x, b.y, b.r * 2.2);
+                    if (b.fireT > 0) {
+                        g.addColorStop(0, "rgba(255,255,255,.98)");
+                        g.addColorStop(0.35, "rgba(255,170,120,.95)");
+                        g.addColorStop(1, "rgba(255,60,60,.15)");
+                    } else {
+                        g.addColorStop(0, "rgba(255,255,255,.98)");
+                        g.addColorStop(0.45, "rgba(160,220,255,.9)");
+                        g.addColorStop(1, "rgba(60,120,255,.12)");
+                    }
+                    ctx.fillStyle = g;
+                    ctx.beginPath();
+                    ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    if (b.fireT > 0) {
+                        ctx.globalAlpha = 0.35;
+                        ctx.beginPath();
+                        ctx.arc(b.x, b.y, b.r + 6, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                    ctx.restore();
+                }
+
+                // Drops
+                for (const d of drops) {
+                    ctx.save();
+                    const label = (POWER_TYPES.find(p => p.key === d.type)?.label) ?? d.type;
+
+                    const g = ctx.createLinearGradient(d.x - d.r, d.y - d.r, d.x + d.r, d.y + d.r);
+                    g.addColorStop(0, "rgba(255,255,255,.85)");
+                    g.addColorStop(1, "rgba(180,255,220,.85)");
+                    ctx.fillStyle = g;
+                    ctx.globalAlpha = 0.9;
+                    ctx.beginPath();
+                    ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.globalAlpha = 0.22;
+                    ctx.strokeStyle = "white";
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
+                    ctx.stroke();
+
+                    ctx.globalAlpha = 0.9;
+                    ctx.fillStyle = "rgba(0,0,0,.35)";
+                    ctx.font = "800 11px system-ui, -apple-system, Segoe UI, Roboto, Noto Sans JP, sans-serif";
+                    ctx.textAlign = "center";
+                    ctx.textBaseline = "middle";
+                    ctx.fillText(label, d.x + 1, d.y + 1);
+                    ctx.fillStyle = "rgba(20,30,50,.95)";
+                    ctx.fillText(label, d.x, d.y);
+
+                    ctx.restore();
+                }
+
+                // Overlays
+                if (!state.running && !state.gameOver && !state.win && !state.paused) {
+                    ctx.save();
+                    ctx.fillStyle = "rgba(0,0,0,.35)";
+                    roundRectPath(ctx, 180, 210, W - 360, 140, 18);
+                    ctx.fill();
+
+                    drawTextShadow("クリックで開始", W / 2, 250, 30, "center");
+                    drawTextShadow("ブロックを壊してアイテムを拾う。落ちたらライフ減。", W / 2, 290, 14, "center");
+                    drawTextShadow("Tips: MULTIが出やすい設定にしています。", W / 2, 315, 14, "center");
+                    ctx.restore();
+                }
+
+                if (state.paused) {
+                    ctx.save();
+                    ctx.fillStyle = "rgba(0,0,0,.45)";
+                    roundRectPath(ctx, 220, 220, W - 440, 110, 18);
+                    ctx.fill();
+                    drawTextShadow("PAUSED", W / 2, 260, 34, "center");
+                    drawTextShadow("クリック or Space で再開", W / 2, 300, 14, "center");
+                    ctx.restore();
+                }
+
+                if (state.gameOver) {
+                    ctx.save();
+                    ctx.fillStyle = "rgba(0,0,0,.55)";
+                    roundRectPath(ctx, 200, 210, W - 400, 150, 18);
+                    ctx.fill();
+                    drawTextShadow("GAME OVER", W / 2, 255, 34, "center");
+                    drawTextShadow(`SCORE: ${state.score}  /  Rでリスタート`, W / 2, 305, 14, "center");
+                    ctx.restore();
+                }
+
+                if (state.win) {
+                    ctx.save();
+                    ctx.fillStyle = "rgba(0,0,0,.50)";
+                    roundRectPath(ctx, 180, 210, W - 360, 150, 18);
+                    ctx.fill();
+                    drawTextShadow("CLEAR!", W / 2, 252, 36, "center");
+                    drawTextShadow(`クリックで次のレベルへ（現在: ${state.level}）`, W / 2, 300, 14, "center");
+                    drawTextShadow("Rで最初から", W / 2, 324, 14, "center");
+                    ctx.restore();
+                }
+
+                ctx.restore();
+            }
+
+            function loop(now) {
+                const dt = Math.min(0.033, (now - last) / 1000);
+                last = now;
+                update(dt);
+                render();
+                requestAnimationFrame(loop);
+            }
+
+            canvas.addEventListener("mousedown", () => {
+                if (state.win) nextLevel();
+            });
+
+            // Initialize
+            function init() {
+                state.running = false;
+                state.paused = false;
+                state.gameOver = false;
+                state.win = false;
+                state.level = 1;
+                state.score = 0;
+                state.lives = 3;
+                state.combo = 0;
+                state.shakeT = 0;
+
+                paddle.w = 140;
+                balls.length = 0;
+                drops.length = 0;
+                timeScale = 1.0;
+                timeScaleT = 0;
+
+                generateLevel(state.level);
+                spawnBall(W / 2, paddle.y - 18, 420, -Math.PI / 2);
+            }
+
+            init();
+            requestAnimationFrame((t) => { last = t; loop(t); });
+
+            // Reset shortcut
+            function resetAll() { init(); }
+        })();
+    </script>
+</body>
+
+</html>

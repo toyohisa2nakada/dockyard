@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <title>AI Janken Prototype</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            text-align: center;
+            background: #f0f0f0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .hands {
+            font-size: 50px;
+            margin: 20px;
+        }
+
+        button {
+            font-size: 30px;
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            background: #ddd;
+            transition: 0.2s;
+        }
+
+        button:hover {
+            background: #bbb;
+            transform: scale(1.1);
+        }
+
+        #result {
+            font-size: 24px;
+            font-weight: bold;
+            margin: 20px;
+            height: 30px;
+        }
+
+        #stats {
+            font-size: 14px;
+            color: #555;
+            text-align: left;
+            background: #eee;
+            padding: 10px;
+            margin-top: 20px;
+            border-radius: 5px;
+            font-family: monospace;
+        }
+
+        .bar-container {
+            width: 100%;
+            background: #ccc;
+            height: 10px;
+            border-radius: 5px;
+            margin-bottom: 5px;
+            overflow: hidden;
+        }
+
+        .bar {
+            height: 100%;
+            background: #4caf50;
+            width: 0%;
+            transition: width 0.3s;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h2>🧠 思考を読むじゃんけんAI</h2>
+        <p>あなたのクセを学習して、次の一手を予測します。<br>最初は弱いですが、10回ほど戦うと強くなります。</p>
+        <div id="result">準備完了！手を選んでください</div>
+        <div class="hands">
+            <div id="ai-hand">🤖 AI: ???</div>
+            <div id="human-hand">👤 あなた: ???</div>
+        </div>
+        <div> <button onclick="play(0)">✊ グー</button> <button onclick="play(1)">✌️ チョキ</button> <button
+                onclick="play(2)">✋ パー</button>
+        </div>
+        <div id="stats">
+            <p><strong>AIの脳内 (予測確率):</strong></p> グーが来る確率: <div class="bar-container">
+                <div id="prob0" class="bar" style="background:#ff5252"></div>
+            </div> チョキが来る確率: <div class="bar-container">
+                <div id="prob1" class="bar" style="background:#448aff"></div>
+            </div> パーが来る確率: <div class="bar-container">
+                <div id="prob2" class="bar" style="background:#69f0ae"></div>
+            </div>
+            <p>対戦数: <span id="round">0</span> | AIの勝率: <span id="winrate">0</span>%</p>
+        </div>
+    </div>
+    <script> /** * 簡易FNN (Feedforward Neural Network) クラス * ライブラリを使わず、JavaScriptの標準機能だけで実装 */
+        class SimpleFNN {
+            constructor(inputNodes, hiddenNodes, outputNodes) {
+                this.inputNodes = inputNodes; this.hiddenNodes = hiddenNodes; this.outputNodes = outputNodes; this.learningRate = 0.1; // 学習率 // 重みの初期化（ランダム） 
+                this.weights_ih = this.createMatrix(this.hiddenNodes, this.inputNodes);
+                // 入力→隠れ 
+                this.weights_ho = this.createMatrix(this.outputNodes, this.hiddenNodes);
+                // 隠れ→出力 
+            }
+            createMatrix(rows, cols) { return Array.from({ length: rows }, () => Array.from({ length: cols }, () => Math.random() * 2 - 1)); }
+            // シグモイド関数（活性化関数） 
+            sigmoid(x) { return 1 / (1 + Math.exp(-x)); }
+            // シグモイドの微分（学習用） 
+            dsigmoid(y) { return y * (1 - y); }
+            // 推論（予測）を行うメソッド 
+            predict(inputArray) {
+                // 1. 隠れ層の計算 
+                let hidden = this.multiply(this.weights_ih, inputArray); hidden = hidden.map(val => this.sigmoid(val));
+                // 2. 出力層の計算 
+                let output = this.multiply(this.weights_ho, hidden); output = output.map(val => this.sigmoid(val)); return { output, hidden };
+            }
+            // 学習（バックプロパゲーション）を行うメソッド 
+            train(inputArray, targetArray) {
+                // まず現在の予測を行う 
+                let { output, hidden } = this.predict(inputArray);
+                // --- 誤差逆伝播法 --- 
+                // 1. 出力層の誤差（正解 - 予測） 
+                let outputErrors = targetArray.map((t, i) => t - output[i]);
+                // 2. 隠れ層→出力層の重み更新 
+                let outputGradients = output.map((o, i) => this.dsigmoid(o) * outputErrors[i] * this.learningRate);
+                // 行列演算の簡易実装（重みの更新） 
+                for (let i = 0; i < this.outputNodes; i++) { for (let j = 0; j < this.hiddenNodes; j++) { this.weights_ho[i][j] += outputGradients[i] * hidden[j]; } }
+                // 3. 隠れ層の誤差 
+                let hiddenErrors = new Array(this.hiddenNodes).fill(0); for (let i = 0; i < this.outputNodes; i++) { for (let j = 0; j < this.hiddenNodes; j++) { hiddenErrors[j] += this.weights_ho[i][j] * outputErrors[i]; } }
+                // 4. 入力層→隠れ層の重み更新 
+                let hiddenGradients = hidden.map((h, i) => this.dsigmoid(h) * hiddenErrors[i] * this.learningRate); for (let i = 0; i < this.hiddenNodes; i++) {
+                    for (let j = 0; j < this.inputNodes; j++) { this.weights_ih[i][j] += hiddenGradients[i] * inputArray[j]; }
+                }
+            }
+            // 行列とベクトルの積 
+            multiply(matrix, vector) { return matrix.map(row => row.reduce((sum, weight, i) => sum + weight * vector[i], 0)); }
+        }
+        // --- ゲームのロジック --- 
+        // 入力3(前の手:G,C,P) -> 隠れ4 -> 出力3(予測:G,C,P) 
+        const brain = new SimpleFNN(3, 4, 3); let lastHumanMove = null;
+        // 1回前の人間の手 
+        let totalGames = 0; let aiWins = 0; function play(humanMove) {
+            const hands = ["✊", "✌️", "✋"];
+            // 1. AIの手を決める 
+            // まだデータがない(初回)はランダム、2回目以降は予測に基づいて勝つ手を出す 
+            let aiPrediction = [0.33, 0.33, 0.33]; let aiMove = Math.floor(Math.random() * 3); if (lastHumanMove !== null) {
+                // 前回の人間手を入力にして、今回人間が出す手を予測 
+                let input = [0, 0, 0]; input[lastHumanMove] = 1;
+                // One-hot encoding 
+                let result = brain.predict(input); aiPrediction = result.output;
+                // 予測確率が最も高い手を探す 
+                let predictedHumanMove = aiPrediction.indexOf(Math.max(...aiPrediction));
+                // その手に勝つ手を出す (G(0)にはP(2), C(1)にはG(0), P(2)にはC(1))
+                aiMove = (predictedHumanMove + 2) % 3;
+                // 勝つ手のロジック
+            }
+            // 2. 勝敗判定 
+            // (0:G, 1:C, 2:P) -> (Human - AI + 3) % 3 ... 0:あいこ, 1:負け(AI勝ち), 2:勝ち 
+            let judge = (humanMove - aiMove + 3) % 3; let msg = ""; let color = "black"; if (judge === 0) { msg = "あいこ！"; } else if (judge === 1) { msg = "AIの勝ち！（予測的中？）"; color = "red"; aiWins++; } else { msg = "あなたの勝ち！"; color = "blue"; } totalGames++;
+            // 3. 画面更新 
+            document.getElementById("human-hand").innerText = "👤 あなた: " + hands[humanMove]; document.getElementById("ai-hand").innerText = "🤖 AI: " + hands[aiMove]; const resDiv = document.getElementById("result"); resDiv.innerText = msg; resDiv.style.color = color; document.getElementById("round").innerText = totalGames; document.getElementById("winrate").innerText = ((aiWins / totalGames) * 100).toFixed(1);
+            // AIの思考（予測確率）の可視化 
+            document.getElementById("prob0").style.width = (aiPrediction[0] * 100) + "%"; document.getElementById("prob1").style.width = (aiPrediction[1] * 100) + "%"; document.getElementById("prob2").style.width = (aiPrediction[2] * 100) + "%";
+            // 4. 学習 (これが一番重要！) 
+            // 「前回の手」があった場合、今回の結果を使ってAIを賢くする 
+            if (lastHumanMove !== null) {
+                let input = [0, 0, 0]; input[lastHumanMove] = 1; let target = [0, 0, 0]; target[humanMove] = 1;
+                // 今回人間が実際に出した手が「正解」 
+                // バックプロパゲーション実行 
+                brain.train(input, target);
+            }
+            // 今回の手を記憶（次回の入力になる） 
+            lastHumanMove = humanMove;
+        }
+    </script>
+</body>
+
+</html>

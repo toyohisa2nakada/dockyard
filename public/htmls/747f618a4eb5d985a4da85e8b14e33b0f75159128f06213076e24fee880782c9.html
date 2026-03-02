@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>行動特性対応TODOアプリ</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            padding: 30px;
+            min-height: 100vh;
+        }
+
+        h1 {
+            color: white;
+            margin-bottom: 20px;
+        }
+
+        h2 {
+            color: #444;
+            margin-bottom: 10px;
+        }
+
+        .box {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            border-radius: 16px;
+            margin-bottom: 24px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+            max-width: 600px;
+        }
+
+        label {
+            display: block;
+            margin-top: 12px;
+            font-size: 14px;
+            color: #333;
+        }
+
+        input,
+        select {
+            margin-top: 6px;
+            padding: 8px 10px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        button {
+            background: linear-gradient(135deg, #6b7cff, #5a6bf0);
+            color: white;
+            cursor: pointer;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 999px;
+            font-size: 14px;
+            transition: transform 0.1s ease, box-shadow 0.1s ease;
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .task {
+            padding: 12px 10px;
+            border-radius: 12px;
+            margin-bottom: 10px;
+            background: #f4f6fb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🧠 行動特性対応TODOアプリ</h1>
+    <div class="box">
+        <h2>① あなたの特徴</h2> <label><input type="checkbox" id="lazy"> めんどくさがり</label>
+        <label>集中時間 <select id="focus">
+                <option value="short">短い</option>
+                <option value="long">長い</option>
+            </select> </label>
+    </div>
+    <div class="box">
+        <h2>② TODOを追加</h2> <label>やること <input id="taskName"></label> <label>期限 <input type="date" id="deadline"></label>
+        <label>所要時間（分） <input type="number" id="time" min="5"></label> <label>めんどくささ <select id="hard">
+                <option value="1">★1</option>
+                <option value="2">★2</option>
+                <option value="3">★3</option>
+                <option value="4">★4</option>
+                <option value="5">★5</option>
+            </select> </label> <button onclick="addTask()">追加</button>
+    </div>
+    <div class="box">
+        <h2>③ おすすめ順TODO</h2> <button onclick="recommend()">並び替える</button>
+        <div id="list"></div>
+    </div>
+    <script> let tasks = []; function addTask() { const task = { name: taskName.value, deadline: new Date(deadline.value), time: Number(time.value), hard: Number(hard.value) }; tasks.push(task); taskName.value = ''; time.value = ''; alert('TODOを追加しました'); } function popConfetti(x, y) {
+            for (let i = 0; i < 12; i++) {
+                const confetti = document.createElement('div'); confetti.style.position = 'fixed'; confetti.style.left = x + 'px'; confetti.style.top = y + 'px'; confetti.style.width = '6px'; confetti.style.height = '6px'; confetti.style.background = `hsl(${Math.random() * 360}, 80%, 60%)`;
+                confetti.style.borderRadius = '2px'; confetti.style.pointerEvents = 'none'; document.body.appendChild(confetti); const angle = Math.random() * 2 * Math.PI; const distance = Math.random() * 60; confetti.animate([{ transform: 'translate(0,0)', opacity: 1 }, { transform: `translate(${Math.cos(angle) * distance}px, ${Math.sin(angle) * distance}px)`, opacity: 0 }], { duration: 600, easing: 'ease-out' }); setTimeout(() => confetti.remove(), 600);
+            }
+        } function recommend() {
+            const isLazy = lazy.checked; tasks.sort((a, b) => {
+                let scoreA = a.hard + a.time / 30; let scoreB = b.hard + b.time / 30; if (isLazy) { scoreA += a.time; scoreB += b.time; }
+                return scoreA - scoreB;
+            }); list.innerHTML = ''; tasks.forEach((t, index) => { const div = document.createElement('div'); div.className = 'task'; if (index === 0) { div.style.background = 'linear-gradient(135deg, #ffeaa7, #fab1a0)'; div.style.fontWeight = 'bold'; } div.innerHTML = `📌 ${t.name}（${t.time}分・★${t.hard}）`; const doneBtn = document.createElement('button'); doneBtn.textContent = '完了'; doneBtn.onclick = (e) => { popConfetti(e.clientX, e.clientY); tasks.splice(index, 1); recommend(); }; div.appendChild(doneBtn); list.appendChild(div); });
+        } </script>
+</body>
+
+</html>

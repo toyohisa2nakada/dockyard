@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>占いスタンド | URANAI STAND</title>
+    <style>
+        :root {
+            --bg: #ffffff;
+            --text: #000000;
+            --border: #e0e0e0;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Helvetica Neue', 'Arial', sans-serif;
+            margin: 0;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        #app {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            border-left: 1px solid var(--border);
+            border-right: 1px solid var(--border);
+            min-height: 100vh;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            padding-bottom: 20px;
+            border-bottom: 2px solid var(--text);
+            margin-bottom: 40px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin: 0;
+            font-weight: 900;
+            line-height: 1;
+        }
+
+        .version {
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .screen {
+            display: none;
+        }
+
+        .active {
+            display: block;
+        }
+
+        /* モード選択 */
+        .grid-select {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2px;
+            background-color: var(--text);
+            border: 2px solid var(--text);
+        }
+
+        .select-card {
+            background: var(--bg);
+            padding: 80px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .select-card:hover {
+            background: var(--text);
+            color: var(--bg);
+        }
+
+        /* 入力フォーム */
+        .form-container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .input-group {
+            margin-bottom: 24px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.7rem;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        input {
+            width: 100%;
+            border: none;
+            border-bottom: 1px solid var(--text);
+            padding: 12px 0;
+            font-size: 1.1rem;
+            outline: none;
+            text-transform: none;
+        }
+
+        .action-btn {
+            background: var(--text);
+            color: var(--bg);
+            border: none;
+            width: 100%;
+            padding: 20px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 40px;
+        }
+
+        /* 結果表示 */
+        .result-header {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #000;
+            color: #fff;
+            text-align: center;
+        }
+
+        .result-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .result-box {
+            border: 1px solid var(--text);
+            padding: 20px;
+        }
+
+        .result-label {
+            font-size: 0.7rem;
+            font-weight: bold;
+            border-bottom: 1px solid var(--text);
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+        }
+
+        .result-text {
+            font-size: 0.9rem;
+            text-transform: none;
+            line-height: 1.6;
+        }
+
+        .graffiti {
+            font-family: 'Brush Script MT', cursive;
+            font-size: 3rem;
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            opacity: 0.1;
+            pointer-events: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+        <header>
+            <h1>URANAI<br>STAND.</h1>
+            <div class="version">EST 2026 / TYPE: ASTRO-CORE</div>
+        </header>
+        <div id="screen-select" class="screen active">
+            <div class="grid-select">
+                <div class="select-card" onclick="showForm('single')">
+                    <h2>PERSONAL</h2>
+                    <p>自分を占う</p>
+                </div>
+                <div class="select-card" onclick="showForm('pair')">
+                    <h2>COMPATIBILITY</h2>
+                    <p>相性を占う</p>
+                </div>
+            </div>
+        </div>
+        <div id="screen-main" class="screen">
+            <div class="form-container" id="input-section">
+                <h2 id="mode-title">DATA INPUT</h2>
+                <div class="input-group"><label>NICKNAME</label><input type="text" id="name1" placeholder="NAME"></div>
+                <div class="input-group"><label>BIRTHDAY</label><input type="date" id="dob1"></div>
+                <div id="partner-fields"
+                    style="display: none; border-top: 2px solid #000; margin-top: 40px; padding-top: 40px;">
+                    <div class="input-group"><label>PARTNER'S NICKNAME</label><input type="text" id="name2"
+                            placeholder="PARTNER NAME"></div>
+                    <div class="input-group"><label>PARTNER'S BIRTHDAY</label><input type="date" id="dob2"></div>
+                </div>
+                <button class="action-btn" onclick="startFortune()">RUN ANALYSIS</button>
+            </div>
+            <div id="result-section" style="display: none;">
+                <div id="result-header-info" class="result-header"></div>
+                <div class="result-grid" id="result-display"></div>
+                <button class="action-btn" onclick="location.reload()">NEW ANALYSIS</button>
+            </div>
+        </div>
+    </div>
+    <div class="graffiti">UranaiStand</div>
+    <script>
+        let currentMode = 'single';
+        // 星座データ
+        const ZODIAC_DATA = {
+            "ARIES": { element: "FIRE", trait: "情熱的で開拓精神旺盛", love: "ストレートで情熱的", work: "リーダーシップを発揮する" },
+            "TAURUS": { element: "EARTH", trait: "穏やかで粘り強い実力派", love: "一途で安定を求める", work: "着実に成果を積み上げる" },
+            "GEMINI": { element: "AIR", trait: "好奇心旺盛で情報通", love: "会話を重視する知的な恋", work: "変化のある環境で輝く" },
+            "CANCER": { element: "WATER", trait: "共感力が高く家族思い", love: "深い包容力で愛し抜く", work: "チームを支える調整役" },
+            "LEO": { element: "FIRE", trait: "華やかで堂々とした自信家", love: "ドラマチックな展開を好む", work: "クリエイティブな表現が得意" },
+            "VIRGO": { element: "EARTH", trait: "几帳面で知的な完璧主義", love: "誠実で控えめな愛情表現", work: "分析や管理業務に秀でる" },
+            "LIBRA": { element: "AIR", trait: "社交的でバランス感覚抜群", love: "美意識が高く調和を重視", work: "交渉やプレゼンで活躍" },
+            "SCORPIO": { element: "WATER", trait: "洞察力が鋭く情熱的", love: "一度愛した相手には深い執着", work: "一つの道を究める専門職" },
+            "SAGITTARIUS": { element: "FIRE", trait: "自由奔放で冒険心旺盛", love: "束縛を嫌い高め合う関係", work: "グローバルな分野で飛躍" },
+            "CAPRICORN": { element: "EARTH", trait: "真面目で責任感の強い努力家", love: "奥手だが時間をかけて育む", work: "組織の柱となる管理職" },
+            "AQUARIUS": { element: "AIR", trait: "独創的で論理的な平和主義", love: "友情の延長線上にある恋", work: "ITや先端技術の分野" },
+            "PISCES": { element: "WATER", trait: "感受性豊かで芸術的な感性", love: "ロマンチックで献身的", work: "福祉や芸術、心理に関わる仕事" }
+        };
+        function showForm(mode) {
+            currentMode = mode;
+            document.getElementById('screen-select').classList.remove('active');
+            document.getElementById('screen-main').classList.add('active');
+            document.getElementById('partner-fields').style.display = (mode === 'pair') ? 'block' : 'none';
+        }
+        function getSign(dateStr) {
+            if (!dateStr) return "ARIES";
+            const d = new Date(dateStr);
+            const m = d.getMonth() + 1;
+            const day = d.getDate();
+            if ((m == 3 && day >= 21) || (m == 4 && day <= 19)) return "ARIES";
+            if ((m == 4 && day >= 20) || (m == 5 && day <= 20)) return "TAURUS";
+            if ((m == 5 && day >= 21) || (m == 6 && day <= 21)) return "GEMINI";
+            if ((m == 6 && day >= 22) || (m == 7 && day <= 22)) return "CANCER";
+            if ((m == 7 && day >= 23) || (m == 8 && day <= 22)) return "LEO";
+            if ((m == 8 && day >= 23) || (m == 9 && day <= 22)) return "VIRGO";
+            if ((m == 9 && day >= 23) || (m == 10 && day <= 23)) return "LIBRA";
+            if ((m == 10 && day >= 24) || (m == 11 && day <= 22)) return "SCORPIO";
+            if ((m == 11 && day >= 23) || (m == 12 && day <= 21)) return "SAGITTARIUS";
+            if ((m == 12 && day >= 22) || (m == 1 && day <= 19)) return "CAPRICORN";
+            if ((m == 1 && day >= 20) || (m == 2 && day <= 18)) return "AQUARIUS";
+            return "PISCES";
+        }
+        function calculateCompatibility(s1, s2) {
+            const e1 = ZODIAC_DATA[s1].element;
+            const e2 = ZODIAC_DATA[s2].element;
+            if (e1 === e2) return { score: 95, text: "価値観が一致し、阿吽の呼吸で通じ合える最高の相性です。" };
+            if ((e1 === "FIRE" && e2 === "AIR") || (e1 === "AIR" && e2 === "FIRE")) return { score: 85, text: "互いに刺激を与え合い、世界を広げられるエネルギッシュな関係です。" };
+            if ((e1 === "EARTH" && e2 === "WATER") || (e1 === "WATER" && e2 === "EARTH")) return { score: 90, text: "情緒的な安心感があり、時間をかけて深い絆を築ける組み合わせです。" };
+            return { score: 60, text: "違いを尊重することで、新しい視点を得られる学びの多い相性です。" };
+        }
+        function startFortune() {
+            const n1 = document.getElementById('name1').value || 'USER_01';
+            const sign1 = getSign(document.getElementById('dob1').value);
+            const data1 = ZODIAC_DATA[sign1];
+            let html = '';
+            if (currentMode === 'single') {
+                document.getElementById('result-header-info').innerText = `${n1} | ${sign1} (${data1.element})`;
+                const results = [
+                    ['基本的性格', data1.trait],
+                    ['恋愛傾向', data1.love],
+                    ['仕事傾向', data1.work],
+                    ['今月の運勢', `今月は${data1.element}のエネルギーが強まり、${data1.trait}な一面が成功を引き寄せます。`],
+                    ['金運', `自身の強みである${data1.work}ことに繋がる投資が吉となります。`],
+                    ['恋愛運', `${data1.love}という強みが、意外な人物の心を動かすでしょう。`]
+                ];
+                results.forEach(item => {
+                    html += `<div class="result-box"><div class="result-label">${item[0]}</div><div class="result-text">${item[1]}</div></div>`;
+                });
+            } else {
+                const n2 = document.getElementById('name2').value || 'USER_02';
+                const sign2 = getSign(document.getElementById('dob2').value);
+                const data2 = ZODIAC_DATA[sign2];
+                const comp = calculateCompatibility(sign1, sign2);
+                document.getElementById('result-header-info').innerHTML = `${n1}(${sign1}) × ${n2}(${sign2})<br>COMPATIBILITY: ${comp.score}%`;
+                const results = [
+                    ['二人の本質', `${n1}は${data1.trait}、${n2}は${data2.trait}な気質。`],
+                    ['全体的な相性', comp.text],
+                    ['恋愛相性', comp.score > 80 ? '情熱的な結びつき。' : '対話を重視すべき関係。'],
+                    ['友達相性', '価値観が似ており、長時間一緒にいても疲れません。'],
+                    ['パートナー相性', '役割分担を明確にすることで、盤石の協力体制が築けます。'],
+                    ['親子・仕事', 'お互いを一人の人間として尊重し合える良きパートナー。']
+                ];
+                results.forEach(item => {
+                    html += `<div class="result-box"><div class="result-label">${item[0]}</div><div class="result-text">${item[1]}</div></div>`;
+                });
+            }
+            document.getElementById('result-display').innerHTML = html;
+            document.getElementById('input-section').style.display = 'none';
+            document.getElementById('result-section').style.display = 'block';
+        }
+    </script>
+</body>
+
+</html>

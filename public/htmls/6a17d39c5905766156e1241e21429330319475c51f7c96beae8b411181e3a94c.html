@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>進路相談AI</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 100px;
+        }
+
+        #result {
+            margin-top: 20px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>進路相談AI</h1>
+    <p>あなたの興味・得意・希望を入力してください。</p>
+    <textarea id="inputText" placeholder="例：英語が得意で、人と話すのが好き"></textarea>
+    <br>
+    <button onclick="sendToAI()">送信する</button>
+    <div id="result"></div>
+    <script>
+        async function sendToAI() {
+            const input = document.getElementById("inputText").value;
+            if (!input) {
+                alert("入力をしてください！");
+                return;
+            }
+            document.getElementById("result").innerText = "AIからの提案を取得中…";
+            try {
+                const response = await fetch("https://api.openai.com/v1/chat/completions", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": "Bearer YOUR_OPENAI_API_KEY"
+                    },
+                    body: JSON.stringify({
+                        model: "gpt-3.5-turbo",
+                        messages: [
+                            { "role": "system", "content": "あなたは進路相談のアシスタントです。" },
+                            { "role": "user", "content": "ユーザーの入力：" + input }
+                        ],
+                        max_tokens: 300
+                    })
+                });
+                const data = await response.json();
+                const text = data.choices[0].message.content;
+                document.getElementById("result").innerText = text;
+            } catch (err) {
+                document.getElementById("result").innerText = "エラーが発生しました: " + err;
+            }
+        }
+    </script>
+</body>
+
+</html>

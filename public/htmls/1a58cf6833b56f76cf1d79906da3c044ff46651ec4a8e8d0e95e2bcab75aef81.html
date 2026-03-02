@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <title>自爆装置</title>
+
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: sans-serif;
+        }
+
+        .center {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        button {
+            font-size: 20px;
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+
+        .countdown {
+            font-size: 80px;
+            color: red;
+        }
+
+        .fade-in {
+            animation: fadeIn 1.5s forwards;
+        }
+
+        .shake {
+            animation: shake 0.5s;
+        }
+
+        .flash {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: white;
+            animation: flash 0.3s;
+            pointer-events: none;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes shake {
+            0% {
+                transform: translate(0);
+            }
+
+            25% {
+                transform: translate(10px);
+            }
+
+            50% {
+                transform: translate(-10px);
+            }
+
+            75% {
+                transform: translate(10px);
+            }
+
+            100% {
+                transform: translate(0);
+            }
+        }
+
+        @keyframes flash {
+            from {
+                opacity: 1;
+            }
+
+            to {
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="main" class="center">
+        <h1>警告</h1>
+        <button onclick="startCountdown()">💣 自爆ボタン</button>
+    </div>
+
+    <script>
+        /* 爆発音（外部ファイル不要・必ず鳴る） */
+        function playBoom() {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+
+            osc.type = "sawtooth";
+            osc.frequency.setValueAtTime(120, ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(20, ctx.currentTime + 0.4);
+
+            gain.gain.setValueAtTime(1, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+
+            osc.start();
+            osc.stop(ctx.currentTime + 0.4);
+        }
+
+        /* カウントダウン開始 */
+        function startCountdown() {
+            let count = 3;
+            const main = document.getElementById("main");
+
+            main.innerHTML = `<div class="countdown">${count}</div>`;
+
+            const timer = setInterval(() => {
+                count--;
+                if (count > 0) {
+                    main.innerHTML = `<div class="countdown">${count}</div>`;
+                } else {
+                    clearInterval(timer);
+                    explode();
+                }
+            }, 1000);
+        }
+
+        /* 爆発処理 */
+        function explode() {
+            document.body.classList.add("shake");
+            playBoom();
+
+            const flash = document.createElement("div");
+            flash.className = "flash";
+            document.body.appendChild(flash);
+
+            setTimeout(() => {
+                document.body.innerHTML = `
+      <div class="center fade-in" style="background:black; color:red;">
+        <h1>あなたは過ちを犯しました</h1>
+        <p style="color:white; font-size:24px;">
+          哀れなあなたを救いましょう
+        </p>
+        <button onclick="revive()">🔄 復活ボタン</button>
+      </div>
+    `;
+            }, 500);
+        }
+
+        /* 復活 */
+        function revive() {
+            document.body.innerHTML = `
+    <div id="main" class="center fade-in">
+      <h1>復活しました</h1>
+      <button onclick="startCountdown()">💣 自爆ボタン</button>
+    </div>
+  `;
+        }
+    </script>
+
+</body>
+
+</html>

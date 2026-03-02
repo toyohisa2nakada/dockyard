@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>思考のクセ診断 | Thinking Style Quiz</title>
+    <style>
+        :root {
+            --primary-color: #e0f2f1;
+            /* ミントグリーン背景 */
+            --accent-color: #4db6ac;
+            /* 落ち着いたグリーン */
+            --text-color: #37474f;
+            --white: #ffffff;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+            background-color: var(--primary-color);
+            color: var(--text-color);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            background-color: var(--white);
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+            width: 90%;
+            max-width: 600px;
+            text-align: center;
+        }
+
+        h1 {
+            color: var(--accent-color);
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        /* ボタンのアニメーション */
+        button {
+            background-color: var(--white);
+            border: 2px solid var(--accent-color);
+            color: var(--accent-color);
+            padding: 12px 24px;
+            margin: 10px 0;
+            border-radius: 30px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            width: 100%;
+            display: block;
+        }
+
+        button:hover {
+            background-color: var(--accent-color);
+            color: white;
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(77, 182, 172, 0.3);
+        }
+
+        .question-text {
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+            font-weight: bold;
+        }
+
+        textarea {
+            width: 100%;
+            height: 80px;
+            border-radius: 10px;
+            border: 1px solid #ccc;
+            padding: 10px;
+            box-sizing: border-box;
+            margin-top: 10px;
+        }
+
+        #advice-box {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f1f8e9;
+            border-left: 5px solid var(--accent-color);
+            text-align: left;
+            font-size: 0.9rem;
+        }
+
+        .result-title {
+            font-size: 1.8rem;
+            color: #2e7d32;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <div id="start-screen">
+            <h1>思考のクセ診断</h1>
+            <p>5つの質問で、あなたの考え方のタイプを可視化します。</p>
+            <button onclick="startQuiz()">診断をはじめる</button>
+        </div>
+
+        <div id="quiz-screen" class="hidden">
+            <p id="progress">1 / 5</p>
+            <p id="question-text" class="question-text"></p>
+            <div id="answer-buttons"></div>
+        </div>
+
+        <div id="result-screen" class="hidden">
+            <h1>診断結果</h1>
+            <div class="result-title" id="type-name"></div>
+            <p id="type-description"></p>
+
+            <hr>
+            <h3>AIお悩み相談室</h3>
+            <p>今の悩みを入力してください。あなたの思考タイプに合わせたアドバイスをします。</p>
+            <textarea id="user-issue" placeholder="例：勉強に集中できません..."></textarea>
+            <button onclick="getAdvice()">アドバイスをもらう</button>
+            <div id="advice-box" class="hidden"></div>
+
+            <button onclick="location.reload()"
+                style="margin-top:20px; border-color:#ccc; color:#666;">最初からやり直す</button>
+        </div>
+    </div>
+
+    <script>
+        const questions = [
+            {
+                q: "新しいプロジェクトを始める時、まず何をする？", a: [
+                    { text: "計画表を細かく作る", type: "logical" },
+                    { text: "まずは面白いアイデアを出す", type: "intuitive" },
+                    { text: "みんなの意見を聞きに行く", type: "empathy" },
+                    { text: "失敗するリスクを洗い出す", type: "risk" }
+                ]
+            },
+            {
+                q: "買い物で迷った時の決め手は？", a: [
+                    { text: "機能やスペックを比較する", type: "logical" },
+                    { text: "パッと見た瞬間の直感", type: "intuitive" },
+                    { text: "店員さんや友達のオススメ", type: "empathy" },
+                    { text: "長く使えるか、保証はあるか", type: "risk" }
+                ]
+            },
+            {
+                q: "映画を観た後の感想は？", a: [
+                    { text: "伏線の回収が完璧だった", type: "logical" },
+                    { text: "映像のセンスが刺激的だった", type: "intuitive" },
+                    { text: "登場人物の気持ちに泣けた", type: "empathy" },
+                    { text: "現実的にあり得るか考えた", type: "risk" }
+                ]
+            },
+            {
+                q: "トラブルが起きた時の反応は？", a: [
+                    { text: "原因を冷静に分析する", type: "logical" },
+                    { text: "ひらめきで解決策を探す", type: "intuitive" },
+                    { text: "周りと協力して乗り越える", type: "empathy" },
+                    { text: "二次被害がないか確認する", type: "risk" }
+                ]
+            },
+            {
+                q: "休日の過ごし方は？", a: [
+                    { text: "趣味のスキルを磨く", type: "logical" },
+                    { text: "予定を決めずに外に出る", type: "intuitive" },
+                    { text: "誰かと会って話をする", type: "empathy" },
+                    { text: "家でゆっくり英気を養う", type: "risk" }
+                ]
+            }
+        ];
+
+        let currentQuestion = 0;
+        let scores = { logical: 0, intuitive: 0, empathy: 0, risk: 0 };
+
+        const typeData = {
+            logical: { name: "論理的・分析タイプ", desc: "物事を筋道立てて考えるのが得意。データや根拠を大切にします。", advice: "考えすぎて動けなくなることがあります。時には『まずやってみる』のも大切です。" },
+            intuitive: { name: "直感・アイデアタイプ", desc: "ひらめきと感性で動く人。新しいことやクリエイティブなことが大好き。", advice: "勢いは素晴らしいですが、細かい確認を忘れてミスをしないよう注意しましょう。" },
+            empathy: { name: "共感・サポートタイプ", desc: "人の気持ちを察するのが上手。チームの空気を良くする天才です。", advice: "他人の顔色を伺いすぎて疲れていませんか？自分の意見も大切にしてくださいね。" },
+            risk: { name: "慎重・リスク管理タイプ", desc: "石橋を叩いて渡る慎重派。ミスが少なく、信頼感は抜群です。", advice: "失敗を恐れすぎるとチャンスを逃します。7割の準備ができたら飛び込んでみては？" }
+        };
+
+        let userType = "";
+
+        function startQuiz() {
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('quiz-screen').classList.remove('hidden');
+            showQuestion();
+        }
+
+        function showQuestion() {
+            const q = questions[currentQuestion];
+            document.getElementById('progress').innerText = `${currentQuestion + 1} / 5`;
+            document.getElementById('question-text').innerText = q.q;
+            const btnContainer = document.getElementById('answer-buttons');
+            btnContainer.innerHTML = '';
+            q.a.forEach(answer => {
+                const btn = document.createElement('button');
+                btn.innerText = answer.text;
+                btn.onclick = () => nextQuestion(answer.type);
+                btnContainer.appendChild(btn);
+            });
+        }
+
+        function nextQuestion(type) {
+            scores[type]++;
+            currentQuestion++;
+            if (currentQuestion < questions.length) {
+                showQuestion();
+            } else {
+                showResult();
+            }
+        }
+
+        function showResult() {
+            document.getElementById('quiz-screen').classList.add('hidden');
+            document.getElementById('result-screen').classList.remove('hidden');
+
+            userType = Object.keys(scores).reduce((a, b) => scores[a] > scores[b] ? a : b);
+            document.getElementById('type-name').innerText = typeData[userType].name;
+            document.getElementById('type-description').innerText = typeData[userType].desc;
+        }
+
+        function getAdvice() {
+            const adviceBox = document.getElementById('advice-box');
+            const issue = document.getElementById('user-issue').value;
+            if (!issue) {
+                alert("悩みを入力してください！");
+                return;
+            }
+            adviceBox.innerHTML = `<strong>あなたの悩みにアドバイス：</strong><br>${typeData[userType].advice}`;
+            adviceBox.classList.remove('hidden');
+        }
+    </script>
+
+</body>
+
+</html>

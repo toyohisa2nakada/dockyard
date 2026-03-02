@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BOOK STORE HOTEL</title>
+    <!-- <link rel="stylesheet" href="style.css"> -->
+    <style>
+        /* 基本設定 */
+        :root {
+            --bg-color: #f8f7f2;
+            --text-color: #2c2c2c;
+            --accent-color: #5d5d5d;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: "Helvetica Neue", "Yu Mincho", serif;
+            line-height: 1.8;
+            margin: 0;
+        }
+
+        /* ヒーロースライダー */
+        #hero {
+            position: relative;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .slide {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center;
+            opacity: 0;
+            transition: opacity 2s ease-in-out;
+        }
+
+        .slide.active {
+            opacity: 1;
+        }
+
+        .hero-content {
+            position: absolute;
+            top: 50%;
+            left: 10%;
+            color: #fff;
+            z-index: 10;
+        }
+
+        /* ストーリーセクション */
+        #story {
+            padding: 120px 0;
+            text-align: center;
+        }
+
+        .text-block p {
+            margin-bottom: 2em;
+            letter-spacing: 0.05em;
+        }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;500;700&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <header>
+        <div class="logo">BOOK STORE HOTEL</div>
+        <nav>
+            <ul>
+                <li><a href="#concept">Concept</a></li>
+                <li><a href="#stay">Stay</a></li>
+                <li><a href="#books">Books</a></li>
+                <li><a href="#dine">Dine</a></li>
+                <li><a href="#info">Info</a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <section id="hero" class="hero">
+            <div class="hero-slider">
+                <div class="slide active"
+                    style="background-image: url('hero_night_lantern_bookshelf_1768909300822.png');"></div>
+                <div class="slide" style="background-image: url('books_quiet_bookstore_1768905666125.png');"></div>
+                <div class="slide" style="background-image: url('stay_room_with_books_1768905637074.png');"></div>
+                <div class="slide" style="background-image: url('restaurant_dining_books_1768905682212.png');"></div>
+            </div>
+            <div class="hero-content">
+                <h1>本を読み、食べ、眠る。<br>24時間の没入体験</h1>
+                <p>静寂な空間を独り占めする、究極の贅沢</p>
+            </div>
+        </section>
+        <section id="story" class="section">
+            <div class="container narrow">
+                <div class="content-block fade-up">
+                    <p class="story-origin">始まりは、現役の書店員である店主が感じた<br>「閉店後の書店の魅力」でした。</p>
+                    <p class="story-text">
+                        静まり返った書店で、<br>
+                        本たちが呼吸しているような独特の気配。<br>
+                        この非日常を、もっと深く味わってほしい。
+                    </p>
+                    <h2 class="story-title">「本屋は夜が面白い。」</h2>
+                    <p class="story-message">
+                        宿泊者だけが愉しめる夜の本屋には、<br>
+                        自然と心が踊る。<br><br>
+                        ホテルレセプションで受付を済ませフロアを降りると、<br>
+                        そこはまるで別世界。<br>
+                        昼間と同じ場所なはずなのに、<br>
+                        全く異なる雰囲気を纏う本屋。<br>
+                        程良く照らされた灯りのもと、本棚の間を彷徨うように、<br>
+                        未だ見ぬ出会いに期待を寄せる。<br><br>
+                        ふと気になるタイトルを見つけ、そっと手を伸ばす。<br>
+                        パラパラとページをめくると、<br>
+                        興味関心が引き寄せられていく。<br>
+                        夜の本屋では、居心地の良さそうな読書場も贅沢に選べる。<br>
+                        ここでの出会いを忘れないように、<br>
+                        本を買って帰るのも、本屋だからまた当然。<br><br>
+                        特別な、夜の本屋での体験を、みなさまに。
+                    </p>
+                </div>
+            </div>
+        </section>
+        <section id="concept" class="section">
+            <div class="container">
+                <h2>Concept</h2>
+                <div class="content-block">
+                    <p>「本を売る」だけではない。「泊まる」「住む」「癒やされる」場所へ。</p>
+                    <p>至福の夜更かしと、未知の本との偶然の出会いを提供します。</p>
+                </div>
+            </div>
+        </section>
+        <section id="stay" class="section">
+            <div class="container">
+                <h2>Stay</h2>
+                <div class="content-block">
+                    <h3>本棚の中に眠る隠れ家</h3>
+                    <img src="stay_room_with_books_1768905637074.png" alt="本棚のある客室" class="section-image" id="img-stay">
+                    <p>本棚と一体化した客室で、物語の世界に浸る特別な夜を。</p>
+                    <h3>夜の書店探索</h3>
+                    <img src="stay_experience_lantern_1768905651837.png" alt="ランタンで書店探索" class="section-image"
+                        id="img-stay-exp">
+                    <p>閉店後の静寂な書店を、ランタン片手に探索する「宝探し」。<br>宿泊者だけが独占できる、秘密の時間です。</p>
+                </div>
+            </div>
+        </section>
+        <section id="books" class="section">
+            <div class="container">
+                <h2>Books</h2>
+                <div class="content-block">
+                    <img src="books_quiet_bookstore_1768905666125.png" alt="静寂な書店" class="section-image" id="img-books">
+                    <p>食、旅、デザイン... こだわりの選書と、運命の一冊との出会い。</p>
+                </div>
+            </div>
+        </section>
+        <section id="dine" class="section">
+            <div class="container">
+                <h2>Dine</h2>
+                <div class="content-block">
+                    <img src="restaurant_dining_books_1768905682212.png" alt="本と食事" class="section-image" id="img-dine">
+                    <p>「味覚で補完する読書体験」。<br>物語に登場する料理や、世界観を再現した一皿と共に。</p>
+                </div>
+            </div>
+        </section>
+        <section id="info" class="section">
+            <div class="container">
+                <h2>Information</h2>
+                <div class="info-details">
+                    <p>〒000-0000 東京都千代田区神田神保町X-X-X</p>
+                    <p>ACCESS: 神保町駅 徒歩3分</p>
+                    <a href="#" class="btn">お問い合わせ</a>
+                </div>
+            </div>
+        </section>
+    </main>
+    <footer>
+        <p>&copy; 2024 BOOK STORE HOTEL. All Rights Reserved.</p>
+    </footer>
+    <script>
+        // ヒーロースライダーの制御
+        const slides = document.querySelectorAll('.slide');
+        let currentSlide = 0;
+
+        function nextSlide() {
+            slides[currentSlide].classList.remove('active');
+            currentSlide = (currentSlide + 1) % slides.length;
+            slides[currentSlide].classList.add('active');
+        }
+
+        setInterval(nextSlide, 5000); // 5秒ごとに切り替え
+
+        // スクロール時のフェードイン演出
+        const observerOptions = {
+            threshold: 0.1
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+
+    </script>
+</body>
+
+</html>

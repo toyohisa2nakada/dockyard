@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <title>無料リアル勝敗予想 ⚽</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            background: #0a0f2c;
+            color: white;
+            text-align: center;
+            padding: 20px;
+        }
+
+        h1 {
+            color: gold;
+        }
+
+        select,
+        button {
+            padding: 10px;
+            font-size: 16px;
+            border-radius: 8px;
+            border: none;
+            margin: 10px;
+        }
+
+        button {
+            background: gold;
+            cursor: pointer;
+        }
+
+        #result {
+            margin-top: 20px;
+            font-size: 18px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>⚽ 無料リアル勝敗予想</h1>
+
+    <div>
+        ホーム:
+        <select id="homeTeam"></select>
+
+        アウェイ:
+        <select id="awayTeam"></select>
+    </div>
+
+    <button onclick="predict()">予想する</button>
+
+    <div id="result"></div>
+
+    <script>
+        const teams = [
+            { name: "Arsenal", lat: 51.5549, lon: -0.1084, baseRank: 2 },
+            { name: "Manchester City", lat: 53.4831, lon: -2.2004, baseRank: 1 },
+            { name: "Liverpool", lat: 53.4308, lon: -2.9608, baseRank: 3 },
+            { name: "Chelsea", lat: 51.4816, lon: -0.1910, baseRank: 6 },
+            { name: "Manchester United", lat: 53.4631, lon: -2.2913, baseRank: 5 }
+        ];
+
+        const homeSelect = document.getElementById("homeTeam");
+        const awaySelect = document.getElementById("awayTeam");
+
+        teams.forEach(t => {
+            homeSelect.add(new Option(t.name, t.name));
+            awaySelect.add(new Option(t.name, t.name));
+        });
+
+        async function predict() {
+            const home = homeSelect.value;
+            const away = awaySelect.value;
+
+            if (home === away) {
+                alert("別のチームを選んでください");
+                return;
+            }
+
+            const resultDiv = document.getElementById("result");
+            resultDiv.textContent = "データ取得中...";
+
+            let homeRank, awayRank;
+
+            // --- 順位取得（失敗しても止まらない） ---
+            try {
+                const res = await fetch(
+                    "https://www.thesportsdb.com/api/v1/json/1/lookuptable.php?l=4328&s=2023-2024"
+                );
+                const data = await res.json();
+
+                if (data.table) {
+                    const standings = data.table;
+                    homeRank = standings.find(t => t.name === home)?.intRank;
+                    awayRank = standings.find(t => t.name === away)?.intRank;
+                }
+            } catch (e) {
+                console.warn("順位API失敗 → 仮順位を使用");
+            }
+
+            // 取れなかった場合は仮順位
+            if (!homeRank) homeRank = teams.find(t => t.name === home).baseRank;
+            if (!awayRank) awayRank = teams.find(t => t.name === away).baseRank;
+
+            // --- 天気取得（Open-Meteo） ---
+            const homeTeamData = teams.find(t => t.name === home);
+
+            let weather = "晴れ";
+            let temp = "不明";
+
+            try {
+                const wRes = await fetch(
+                    `https://api.open-meteo.com/v1/forecast?latitude=${homeTeamData.lat}&longitude=${homeTeamData.lon}&current_weather=true`
+                );
+                const wData = await wRes.json();
+
+                const code = wData.current_weather.weathercode;
+                temp = wData.current_weather.temperature;
+
+                if ((code >= 51 && code <= 67) || (code >= 80 && code <= 99)) {
+                    weather = "雨";
+                }
+            } catch (e) {
+                console.warn("天気API失敗 → 晴れ扱い");
+            }
+
+            // --- 勝敗ロジック ---
+            let homeScore = 100 - homeRank * 2 + 5; // ホーム補正
+            let awayScore = 100 - awayRank * 2;
+
+            if (weather === "雨") {
+                homeScore -= 5;
+                awayScore -= 5;
+            }
+
+            let resultText = "";
+            if (homeScore > awayScore + 5) resultText = "ホーム勝利予想";
+            else if (awayScore > homeScore + 5) resultText = "アウェイ勝利予想";
+            else resultText = "引き分け予想";
+
+            resultDiv.innerHTML = `
+    <b>試合:</b> ${home} vs ${away}<br>
+    <b>順位:</b> ${home} ${homeRank}位 / ${away} ${awayRank}位<br>
+    <b>天気:</b> ${weather}（${temp}℃）<br>
+    <b>予想:</b> <span style="color:gold;">${resultText}</span>
+  `;
+        }
+    </script>
+
+</body>
+
+</html>

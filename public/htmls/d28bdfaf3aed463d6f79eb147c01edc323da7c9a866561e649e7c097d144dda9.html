@@ -1,0 +1,798 @@
+<!doctype html>
+<html lang="ja">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+    <title>Ballz-like (Canvas)</title>
+    <style>
+        html,
+        body {
+            margin: 0;
+            height: 100%;
+            background: #0b0f16;
+            overflow: hidden;
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans JP", sans-serif;
+        }
+
+        /* 中央寄せ（Pecode/iframeでの座標ブレ対策） */
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #wrap {
+            position: relative;
+            width: 420px;
+            height: 760px;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            touch-action: none;
+            /* ←超重要 */
+        }
+
+        .hud {
+            position: absolute;
+            left: 12px;
+            top: 10px;
+            color: #e8eefc;
+            font-weight: 700;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, .6);
+            user-select: none;
+            pointer-events: none;
+        }
+
+        .hud .line {
+            margin-bottom: 6px;
+            font-size: 14px;
+        }
+
+        .btns {
+            position: absolute;
+            right: 12px;
+            top: 10px;
+            display: flex;
+            gap: 8px;
+            user-select: none;
+        }
+
+        button {
+            appearance: none;
+            border: 0;
+            border-radius: 10px;
+            padding: 10px 12px;
+            background: #1c2636;
+            color: #e8eefc;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, .25);
+        }
+
+        button:active {
+            transform: translateY(1px);
+        }
+
+        .centerMsg {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #e8eefc;
+            font-weight: 900;
+            font-size: 34px;
+            letter-spacing: .04em;
+            text-shadow: 0 8px 30px rgba(0, 0, 0, .65);
+            pointer-events: none;
+            user-select: none;
+        }
+
+        .subMsg {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 58%;
+            text-align: center;
+            color: #c8d3f1;
+            font-size: 14px;
+            font-weight: 700;
+            pointer-events: none;
+            user-select: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="wrap">
+        <canvas id="c"></canvas>
+
+        <div class="hud">
+            <div class="line" id="scoreLine">SCORE: 0</div>
+            <div class="line" id="ballsLine">BALLS: 1</div>
+            <div class="line" id="turnLine">TURN: 1</div>
+        </div>
+
+        <div class="btns">
+            <button id="speedBtn">x1</button>
+            <button id="restartBtn">RESTART</button>
+        </div>
+
+        <div class="centerMsg" id="msg" style="display:none;">GAME OVER</div>
+        <div class="subMsg" id="submsg" style="display:none;">クリック/タップでリスタート</div>
+    </div>
+
+    <script>
+        (() => {
+            // ===== utils =====
+            const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+            const rand = (a, b) => a + Math.random() * (b - a);
+            const randi = (a, b) => Math.floor(rand(a, b + 1));
+            const norm = (x, y) => { const l = Math.hypot(x, y) || 1; return { x: x / l, y: y / l }; };
+            const dot = (ax, ay, bx, by) => ax * bx + ay * by;
+            const dist2 = (ax, ay, bx, by) => { const dx = ax - bx, dy = ay - by; return dx * dx + dy * dy; };
+
+            function closestPointOnSegment(px, py, ax, ay, bx, by) {
+                const abx = bx - ax, aby = by - ay;
+                const apx = px - ax, apy = py - ay;
+                const ab2 = abx * abx + aby * aby || 1;
+                let t = (apx * abx + apy * aby) / ab2;
+                t = clamp(t, 0, 1);
+                return { x: ax + abx * t, y: ay + aby * t, t };
+            }
+
+            function ensureCCW(verts) {
+                let area = 0;
+                for (let i = 0; i < verts.length; i++) {
+                    const a = verts[i], b = verts[(i + 1) % verts.length];
+                    area += (a.x * b.y - b.x * a.y);
+                }
+                if (area < 0) verts.reverse();
+                return verts;
+            }
+
+            function pointInConvexPoly(px, py, verts) {
+                let sign = 0;
+                for (let i = 0; i < verts.length; i++) {
+                    const a = verts[i], b = verts[(i + 1) % verts.length];
+                    const cross = (b.x - a.x) * (py - a.y) - (b.y - a.y) * (px - a.x);
+                    if (cross === 0) continue;
+                    const s = cross > 0 ? 1 : -1;
+                    if (sign === 0) sign = s;
+                    else if (sign !== s) return false;
+                }
+                return true;
+            }
+
+            function circleConvexCollision(cx, cy, r, verts) {
+                let best = null, bestD2 = Infinity;
+                for (let i = 0; i < verts.length; i++) {
+                    const a = verts[i], b = verts[(i + 1) % verts.length];
+                    const cp = closestPointOnSegment(cx, cy, a.x, a.y, b.x, b.y);
+                    const d2 = dist2(cx, cy, cp.x, cp.y);
+                    if (d2 < bestD2) { bestD2 = d2; best = cp; }
+                }
+                const inside = pointInConvexPoly(cx, cy, verts);
+                const d = Math.sqrt(bestD2);
+                if (!inside) {
+                    if (d >= r) return { hit: false };
+                    const nx = (cx - best.x) / (d || 1), ny = (cy - best.y) / (d || 1);
+                    return { hit: true, nx, ny, penetration: (r - d) };
+                } else {
+                    let minMove = Infinity;
+                    let outN = { x: 0, y: -1 };
+                    for (let i = 0; i < verts.length; i++) {
+                        const a = verts[i], b = verts[(i + 1) % verts.length];
+                        const ex = b.x - a.x, ey = b.y - a.y;
+                        const n = norm(ey, -ex); // outward for CCW
+                        const dist = dot(cx - a.x, cy - a.y, n.x, n.y); // inside -> negative
+                        const move = r + dist;
+                        if (move < minMove) { minMove = move; outN = n; }
+                    }
+                    return { hit: true, nx: outN.x, ny: outN.y, penetration: Math.max(0, minMove) };
+                }
+            }
+
+            function reflect(vx, vy, nx, ny) {
+                const vn = vx * nx + vy * ny;
+                return { x: vx - 2 * vn * nx, y: vy - 2 * vn * ny };
+            }
+
+            // ===== canvas =====
+            const canvas = document.getElementById('c');
+            const ctx = canvas.getContext('2d');
+            let W = 0, H = 0, DPR = 1;
+
+            function resize() {
+                DPR = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+                W = Math.floor(canvas.clientWidth);
+                H = Math.floor(canvas.clientHeight);
+                canvas.width = Math.max(1, Math.floor(W * DPR));
+                canvas.height = Math.max(1, Math.floor(H * DPR));
+                ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+            }
+            window.addEventListener('resize', () => { resize(); recalcLayout(); });
+
+            // ===== config =====
+            const SHOOTER_Y_RATIO = 0.10;
+            const FLOOR_MARGIN = 12;
+            const RETURN_TOP_Y = 10;
+            const LANE_MARGIN = 26;
+
+            // ★ボール大きめ
+            const BALL_R = 10;
+
+            const BALL_SPEED = 620;
+            const RETURN_SPEED = 760;
+            const SHOT_GAP_MS = 70;
+            const BOUNCE_DAMP = 1.0;
+            const MAX_DT = 1 / 30;
+
+            const COLS = 7;
+            let cellW = 0, cellH = 0;
+            const INITIAL_BLOCKS_MIN = 2, INITIAL_BLOCKS_MAX = 3;
+            const PLUS_RATE = 0.65;
+            const MIN_SPAWN_DIST = 26;
+
+            // ===== ids =====
+            let uid = 1;
+            const nextId = () => uid++;
+
+            // ===== entities =====
+            let baseX = 0, baseY = 0, FLOOR_LIMIT = 0;
+            let score = 0;
+
+            // ★ターン
+            let turn = 1;
+
+            // MOST IMPORTANT: counts separated
+            let ownedCount = 1;  // permanent
+            let volleyCount = 0; // fixed per turn
+            let balls = [], blocks = [], pluses = [];
+
+            let gameState = "AIM"; // AIM | SHOOT | PLAY | OVER
+            let shootingIndex = 0;
+            let shotTimer = 0;
+            let volleyList = [];
+
+            let aiming = false;
+            let aimDir = { x: 0, y: 1 };
+
+            // ★速度 x1/x2/x3/x4
+            let timeScale = 1;
+            const SPEED_LEVELS = [1, 2, 3, 4];
+
+            function gameOverLineY() { return baseY + 24; }
+
+            class Ball {
+                constructor(x, y) {
+                    this.id = nextId();
+                    this.x = x; this.y = y;
+                    this.vx = 0; this.vy = 0;
+                    this.r = BALL_R;
+                    this.state = "READY"; // READY | FLY | RETURN
+                    this.returnPhase = 0;
+                    this.laneX = 0;
+                    this._hitCooldown = new Map();
+                }
+                setReady() {
+                    this.state = "READY";
+                    this.x = baseX; this.y = baseY;
+                    this.vx = 0; this.vy = 0;
+                    this.returnPhase = 0;
+                }
+                launch(dir) {
+                    this.state = "FLY";
+                    this.vx = dir.x * BALL_SPEED;
+                    this.vy = dir.y * BALL_SPEED;
+                }
+                startReturn() {
+                    this.state = "RETURN";
+                    this.returnPhase = 0;
+                    const leftLane = -LANE_MARGIN, rightLane = W + LANE_MARGIN;
+                    this.laneX = (Math.abs(this.x - leftLane) < Math.abs(this.x - rightLane)) ? leftLane : rightLane;
+                }
+                update(dt, nowMs) {
+                    if (this.state === "READY") { this.x = baseX; this.y = baseY; return; }
+
+                    if (this.state === "FLY") {
+                        this.x += this.vx * dt;
+                        this.y += this.vy * dt;
+
+                        // wall bounce
+                        if (this.x - this.r < 0) { this.x = this.r; this.vx = Math.abs(this.vx) * BOUNCE_DAMP; }
+                        else if (this.x + this.r > W) { this.x = W - this.r; this.vx = -Math.abs(this.vx) * BOUNCE_DAMP; }
+                        if (this.y - this.r < 0) { this.y = this.r; this.vy = Math.abs(this.vy) * BOUNCE_DAMP; }
+
+                        // floor => immediate RETURN
+                        if (this.y + this.r >= FLOOR_LIMIT) {
+                            this.y = FLOOR_LIMIT - this.r;
+                            this.startReturn();
+                            return;
+                        }
+
+                        // blocks
+                        for (const blk of blocks) {
+                            if (blk.dead) continue;
+                            if (Math.abs(this.x - blk.cx) > blk.boundR + this.r + 4) continue;
+                            if (Math.abs(this.y - blk.cy) > blk.boundR + this.r + 4) continue;
+
+                            const col = circleConvexCollision(this.x, this.y, this.r, blk.verts);
+                            if (!col.hit) continue;
+
+                            const last = this._hitCooldown.get(blk.id) || 0;
+                            if (nowMs - last > 35) {
+                                blk.hp -= 1;
+                                if (blk.hp <= 0) blk.dead = true;
+                                score += 1;
+                                this._hitCooldown.set(blk.id, nowMs);
+                            }
+
+                            this.x += col.nx * (col.penetration + 0.3);
+                            this.y += col.ny * (col.penetration + 0.3);
+
+                            const rv = reflect(this.vx, this.vy, col.nx, col.ny);
+                            this.vx = rv.x * BOUNCE_DAMP;
+                            this.vy = rv.y * BOUNCE_DAMP;
+                        }
+
+                        // plus pickup
+                        for (const pu of pluses) {
+                            if (pu.taken) continue;
+                            const rr = pu.r + this.r;
+                            if (dist2(this.x, this.y, pu.x, pu.y) <= rr * rr) {
+                                pu.taken = true;
+                                onPickupPlus(pu.x, pu.y);
+                            }
+                        }
+                        return;
+                    }
+
+                    // RETURN 3 phases
+                    if (this.state === "RETURN") {
+                        if (this.returnPhase === 0) {
+                            this.y = clamp(this.y, RETURN_TOP_Y, FLOOR_LIMIT - this.r);
+                            const dx = this.laneX - this.x;
+                            const step = RETURN_SPEED * dt;
+                            if (Math.abs(dx) <= step) { this.x = this.laneX; this.returnPhase = 1; }
+                            else this.x += Math.sign(dx) * step;
+                            return;
+                        }
+                        if (this.returnPhase === 1) {
+                            const dy = RETURN_TOP_Y - this.y;
+                            const step = RETURN_SPEED * dt;
+                            if (Math.abs(dy) <= step) { this.y = RETURN_TOP_Y; this.returnPhase = 2; }
+                            else this.y += Math.sign(dy) * step;
+                            return;
+                        }
+                        if (this.returnPhase === 2) {
+                            const dx = baseX - this.x, dy = baseY - this.y;
+                            const d = Math.hypot(dx, dy);
+                            const step = RETURN_SPEED * dt;
+                            if (d <= step) this.setReady();
+                            else { this.x += (dx / d) * step; this.y += (dy / d) * step; }
+                        }
+                    }
+                }
+                draw() {
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+                    ctx.fillStyle = "#f2f6ff";
+                    ctx.fill();
+                }
+            }
+
+            class Block {
+                constructor(cx, cy, hp, sides) {
+                    this.id = nextId();
+                    this.cx = cx; this.cy = cy;
+                    this.hp = hp;
+                    this.dead = false;
+
+                    const radius = Math.min(cellW, cellH) * rand(0.30, 0.40);
+                    const ang0 = rand(0, Math.PI * 2);
+                    const verts = [];
+                    for (let i = 0; i < sides; i++) {
+                        const a = ang0 + i * (Math.PI * 2 / sides) + rand(-0.12, 0.12);
+                        const r = radius * rand(0.88, 1.08);
+                        verts.push({ x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r });
+                    }
+                    this.verts = ensureCCW(verts);
+
+                    let br = 0;
+                    for (const v of this.verts) br = Math.max(br, Math.hypot(v.x - cx, v.y - cy));
+                    this.boundR = br + 2;
+                }
+                shiftUp(dy) {
+                    this.cy -= dy;
+                    for (const v of this.verts) v.y -= dy;
+                }
+                draw() {
+                    if (this.dead) return;
+                    ctx.beginPath();
+                    ctx.moveTo(this.verts[0].x, this.verts[0].y);
+                    for (let i = 1; i < this.verts.length; i++) ctx.lineTo(this.verts[i].x, this.verts[i].y);
+                    ctx.closePath();
+                    ctx.fillStyle = "rgba(96,168,255,0.18)";
+                    ctx.fill();
+                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = "rgba(140,198,255,0.65)";
+                    ctx.stroke();
+
+                    ctx.fillStyle = "#e8eefc";
+                    ctx.font = "700 14px system-ui";
+                    ctx.textAlign = "center";
+                    ctx.textBaseline = "middle";
+                    ctx.fillText(String(this.hp), this.cx, this.cy);
+                }
+            }
+
+            class PlusPickup {
+                constructor(x, y) { this.id = nextId(); this.x = x; this.y = y; this.r = 12; this.taken = false; }
+                shiftUp(dy) { this.y -= dy; }
+                draw() {
+                    if (this.taken) return;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+                    ctx.fillStyle = "rgba(86,255,174,0.20)";
+                    ctx.fill();
+                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = "rgba(86,255,174,0.80)";
+                    ctx.stroke();
+                    ctx.strokeStyle = "rgba(230,255,244,0.9)";
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.moveTo(this.x - 6, this.y); ctx.lineTo(this.x + 6, this.y);
+                    ctx.moveTo(this.x, this.y - 6); ctx.lineTo(this.x, this.y + 6);
+                    ctx.stroke();
+                }
+            }
+
+            // ===== layout =====
+            function recalcLayout() {
+                baseX = W * 0.5;
+                baseY = H * SHOOTER_Y_RATIO;
+                FLOOR_LIMIT = H - FLOOR_MARGIN;
+                cellW = W / COLS;
+                cellH = Math.max(56, Math.min(86, H * 0.10));
+                for (const b of balls) if (b.state === "READY") b.setReady();
+            }
+
+            // ===== spawns =====
+            function spawnRow(isInitial = false) {
+                const rowY = FLOOR_LIMIT - cellH * 0.5;
+                const want = isInitial ? randi(INITIAL_BLOCKS_MIN, INITIAL_BLOCKS_MAX) : randi(3, 5);
+                const centers = [];
+                let placed = 0;
+
+                for (let t = 0; t < 80 && placed < want; t++) {
+                    const col = randi(0, COLS - 1);
+                    const cx = col * cellW + cellW * 0.5;
+                    const cy = rowY;
+                    let ok = true;
+                    for (const c of centers) {
+                        if (dist2(cx, cy, c.x, c.y) < MIN_SPAWN_DIST * MIN_SPAWN_DIST) { ok = false; break; }
+                    }
+                    if (!ok) continue;
+
+                    // ★ターンが進むほどHPが増える（自然な難化）
+                    const base = isInitial ? 1 : Math.max(2, Math.floor(turn * 0.8));
+                    const hp = isInitial ? randi(1, 3) : randi(base, base + 4);
+
+                    const sides = randi(3, 6);
+                    blocks.push(new Block(cx, cy, hp, sides));
+                    centers.push({ x: cx, y: cy });
+                    placed++;
+                }
+
+                if (Math.random() < PLUS_RATE) {
+                    for (let t = 0; t < 30; t++) {
+                        const col = randi(0, COLS - 1);
+                        const x = col * cellW + cellW * 0.5;
+                        const y = rowY;
+                        let ok = true;
+                        for (const c of centers) {
+                            if (dist2(x, y, c.x, c.y) < (MIN_SPAWN_DIST * 0.9) ** 2) { ok = false; break; }
+                        }
+                        if (!ok) continue;
+                        pluses.push(new PlusPickup(x, y));
+                        break;
+                    }
+                }
+            }
+
+            function shiftAllUpOneRow() {
+                for (const blk of blocks) blk.shiftUp(cellH);
+                for (const pu of pluses) pu.shiftUp(cellH);
+            }
+
+            function cleanupDead() {
+                blocks = blocks.filter(b => !b.dead && (b.cy + b.boundR) > -80);
+                pluses = pluses.filter(p => !p.taken && (p.y + p.r) > -80);
+            }
+
+            function checkGameOver() {
+                const lineY = gameOverLineY();
+                for (const blk of blocks) {
+                    if (blk.dead) continue;
+                    let minY = Infinity;
+                    for (const v of blk.verts) minY = Math.min(minY, v.y);
+                    if (minY <= lineY) return true;
+                }
+                return false;
+            }
+
+            // ===== turn end =====
+            function endTurn() {
+                turn += 1; // ★ターン進行
+                cleanupDead();
+                shiftAllUpOneRow();
+                cleanupDead();
+                spawnRow(false);
+                if (checkGameOver()) { setGameOver(); return; }
+                gameState = "AIM";
+            }
+
+            // ===== shooting (重要) =====
+            function startShoot() {
+                if (!balls.every(b => b.state === "READY")) return;
+
+                volleyCount = ownedCount; // snapshot
+                volleyList = balls.filter(b => b.state === "READY").slice(0, volleyCount); // snapshot list
+                shootingIndex = 0;
+                shotTimer = 0;
+                gameState = "SHOOT";
+
+                // ★ 1発目を即発射（体感＆取りこぼし対策）
+                shootStep();
+            }
+
+            function shootStep() {
+                if (shootingIndex >= volleyCount) { gameState = "PLAY"; return; }
+                const b = volleyList[shootingIndex];
+                shootingIndex++;
+                if (!b) return;
+                b.x = baseX; b.y = baseY;
+                b.launch(aimDir);
+            }
+
+            // ===== plus pickup (最重要) =====
+            function onPickupPlus(x, y) {
+                ownedCount += 1;          // next turns
+                const nb = new Ball(x, y); // from pickup position
+                nb.launch(aimDir);        // immediately fly
+                balls.push(nb);           // becomes official (must return to end turn)
+            }
+
+            // ===== pointer input (確実に発射させる版) =====
+            function getPosFromPointer(e) {
+                const r = canvas.getBoundingClientRect();
+                return { x: e.clientX - r.left, y: e.clientY - r.top };
+            }
+
+            function updateAimDir(px, py) {
+                let dx = px - baseX;
+                let dy = py - baseY;
+                dy = Math.max(20, dy); // 下方向強制
+                aimDir = norm(dx, dy);
+            }
+
+            function beginAim() {
+                if (gameState === "OVER") { reset(); return; }
+                if (gameState !== "AIM") return;
+                if (!balls.every(b => b.state === "READY")) return;
+                aiming = true;
+            }
+
+            function endAim() {
+                if (!aiming) return;
+                aiming = false;
+                if (gameState !== "AIM") return;
+                startShoot();
+            }
+
+            canvas.addEventListener('pointerdown', (e) => {
+                e.preventDefault();
+                beginAim();
+                const p = getPosFromPointer(e);
+                updateAimDir(p.x, p.y);
+                try { canvas.setPointerCapture(e.pointerId); } catch { }
+            }, { passive: false });
+
+            canvas.addEventListener('pointermove', (e) => {
+                if (!aiming) return;
+                e.preventDefault();
+                const p = getPosFromPointer(e);
+                updateAimDir(p.x, p.y);
+            }, { passive: false });
+
+            canvas.addEventListener('pointerup', (e) => {
+                e.preventDefault();
+                endAim();
+            }, { passive: false });
+
+            window.addEventListener('pointerup', () => {
+                if (!aiming) return;
+                endAim();
+            }, { passive: true });
+
+            window.addEventListener('pointercancel', () => {
+                aiming = false;
+            }, { passive: true });
+
+            window.addEventListener('blur', () => {
+                aiming = false;
+            }, { passive: true });
+
+            // PointerEventsが死ぬ環境用の保険
+            window.addEventListener("mouseup", () => { if (aiming) endAim(); });
+            window.addEventListener("touchend", () => { if (aiming) endAim(); }, { passive: true });
+
+            // ===== UI =====
+            const speedBtn = document.getElementById('speedBtn');
+            const restartBtn = document.getElementById('restartBtn');
+            const msg = document.getElementById('msg');
+            const submsg = document.getElementById('submsg');
+
+            speedBtn.addEventListener('click', () => {
+                const idx = SPEED_LEVELS.indexOf(timeScale);
+                timeScale = SPEED_LEVELS[(idx + 1) % SPEED_LEVELS.length];
+                speedBtn.textContent = "x" + timeScale;
+            });
+
+            restartBtn.addEventListener('click', () => reset());
+
+            function setGameOver() {
+                gameState = "OVER";
+                msg.style.display = "flex";
+                submsg.style.display = "block";
+            }
+
+            function reset() {
+                uid = 1;
+                score = 0;
+                turn = 1;          // ★ターン初期化
+                ownedCount = 1;
+                volleyCount = 0;
+                balls = [];
+                blocks = [];
+                pluses = [];
+                aiming = false;
+                aimDir = { x: 0, y: 1 };
+                gameState = "AIM";
+                msg.style.display = "none";
+                submsg.style.display = "none";
+
+                const b = new Ball(0, 0);
+                balls.push(b);
+
+                // 初期配置（少なめ）
+                spawnRow(true);
+                spawnRow(true);
+                shiftAllUpOneRow();
+
+                for (const bb of balls) bb.setReady();
+                if (checkGameOver()) setGameOver();
+            }
+
+            // ===== loop =====
+            const scoreLine = document.getElementById('scoreLine');
+            const ballsLine = document.getElementById('ballsLine');
+            const turnLine = document.getElementById('turnLine');
+            let lastT = performance.now();
+
+            function update(dt, nowMs) {
+                if (gameState === "SHOOT") {
+                    shotTimer += dt * 1000;
+                    while (shotTimer >= SHOT_GAP_MS) {
+                        shotTimer -= SHOT_GAP_MS;
+                        shootStep();
+                        if (gameState !== "SHOOT") break;
+                    }
+                }
+
+                if (gameState === "SHOOT" || gameState === "PLAY") {
+                    for (const b of balls) b.update(dt, nowMs);
+                    if (balls.length > 0 && balls.every(b => b.state === "READY")) {
+                        endTurn();
+                    }
+                }
+
+                scoreLine.textContent = `SCORE: ${score}`;
+                ballsLine.textContent = `BALLS: ${ownedCount}`;
+                turnLine.textContent = `TURN: ${turn}`;
+            }
+
+            function draw() {
+                ctx.clearRect(0, 0, W, H);
+                ctx.fillStyle = "#0b0f16";
+                ctx.fillRect(0, 0, W, H);
+
+                // ===== arena frame (見える壁) =====
+                const framePad = 0; // 当たり判定と一致させるなら 0
+                ctx.strokeStyle = "rgba(255,255,255,0.16)";
+                ctx.lineWidth = 2;
+
+                // 左右の壁（x=0, x=W）
+                ctx.beginPath();
+                ctx.moveTo(framePad, 0);
+                ctx.lineTo(framePad, H);
+                ctx.moveTo(W - framePad, 0);
+                ctx.lineTo(W - framePad, H);
+                ctx.stroke();
+
+                // 上下の枠（好みで。上は天井っぽさ、下は既にfloor線あるけど二重でもOK）
+                ctx.strokeStyle = "rgba(255,255,255,0.10)";
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(W, 0);
+                ctx.moveTo(0, FLOOR_LIMIT);
+                ctx.lineTo(W, FLOOR_LIMIT);
+                ctx.stroke();
+
+                ctx.strokeStyle = "rgba(255,255,255,0.08)";
+                ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.moveTo(0, FLOOR_LIMIT); ctx.lineTo(W, FLOOR_LIMIT); ctx.stroke();
+
+                ctx.strokeStyle = "rgba(255,98,98,0.12)";
+                ctx.beginPath(); ctx.moveTo(0, gameOverLineY()); ctx.lineTo(W, gameOverLineY()); ctx.stroke();
+
+                // shooter
+                ctx.fillStyle = "rgba(255,255,255,0.12)";
+                ctx.beginPath(); ctx.arc(baseX, baseY, 14, 0, Math.PI * 2); ctx.fill();
+                ctx.strokeStyle = "rgba(255,255,255,0.22)";
+                ctx.lineWidth = 2; ctx.stroke();
+
+                // aim line
+                if (gameState === "AIM" && aiming) {
+                    const L = Math.min(220, H * 0.25);
+                    ctx.strokeStyle = "rgba(230,240,255,0.45)";
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([6, 6]);
+                    ctx.beginPath();
+                    ctx.moveTo(baseX, baseY);
+                    ctx.lineTo(baseX + aimDir.x * L, baseY + aimDir.y * L);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+
+                for (const p of pluses) p.draw();
+                for (const b of blocks) b.draw();
+                for (const b of balls) b.draw();
+
+                if (gameState === "AIM" && !aiming) {
+                    ctx.fillStyle = "rgba(232,238,252,0.60)";
+                    ctx.font = "700 13px system-ui";
+                    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+                    ctx.fillText("ドラッグして角度 → 離すと連射", W * 0.5, baseY + 34);
+                }
+            }
+
+            function loop(t) {
+                const rawDt = (t - lastT) / 1000;
+                lastT = t;
+                const dt = Math.min(MAX_DT, rawDt) * timeScale;
+
+                // サイズ計算（初回・固定ならここだけでもOK）
+                if (W === 0 || H === 0) { resize(); recalcLayout(); }
+
+                if (gameState !== "OVER") update(dt, t);
+                draw();
+                requestAnimationFrame(loop);
+            }
+
+            // boot
+            resize();
+            recalcLayout();
+            reset();
+            requestAnimationFrame(loop);
+        })();
+    </script>
+</body>
+
+</html>

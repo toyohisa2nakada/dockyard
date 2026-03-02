@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>感情判定チャットAI</title>
+    <!-- TensorFlow.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 80px;
+        }
+
+        button {
+            margin-top: 10px;
+            padding: 8px 16px;
+        }
+
+        #result {
+            margin-top: 20px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>感情判定チャットAI</h1>
+    <p>文章を入力してください：</p>
+    <textarea id="inputText"></textarea><br />
+    <button onclick="predictEmotion()">判定する</button>
+    <div id="result"></div>
+    <script>
+        // ===== 1. 学習データ =====
+        const texts = [
+            "とても楽しい",
+            "嬉しい気持ち",
+            "最高の一日",
+            "最悪な気分",
+            "とても疲れた",
+            "悲しい出来事",
+            "今日は学校に行った",
+            "本を読んだ",
+            "昼ごはんを食べた"
+        ];
+        // 0: ポジティブ, 1: ネガティブ, 2: 普通
+        const labels = [0, 0, 0, 1, 1, 1, 2, 2, 2];
+        // ===== 2. 単語辞書 =====
+        const vocab = {};
+        let vocabIndex = 1;
+        function tokenize(text) {
+            return text.split("");
+        }
+        texts.forEach(t => {
+            tokenize(t).forEach(ch => {
+                if (!(ch in vocab)) {
+                    vocab[ch] = vocabIndex++;
+                }
+            });
+        });
+        const vocabSize = vocabIndex;
+        function textToTensor(text, maxLen = 20) {
+            const tokens = tokenize(text).map(ch => vocab[ch] || 0);
+            while (tokens.length < maxLen) tokens.push(0);
+            return tokens.slice(0, maxLen);
+        }
+        const xs = tf.tensor2d(texts.map(t => textToTensor(t)));
+        const ys = tf.tensor1d(labels, "int32");
+        // ===== 3. モデル作成（Attentionあり） =====
+        const input = tf.input({ shape: [20], dtype: "int32" });
+        const embedding = tf.layers.embedding({
+            inputDim: vocabSize,
+            outputDim: 16,
+            maskZero: true
+        }).apply(input);
+        // Attention（簡易的な重み付き平均）
+        const attentionWeights = tf.layers.dense({
+            units: 1,
+            activation: "softmax"
+        }).apply(embedding);
+        const weighted = tf.layers.multiply().apply([embedding, attentionWeights]);
+        const pooled = tf.layers.globalAveragePooling1d().apply(weighted);
+        const output = tf.layers.dense({
+            units: 3,
+            activation: "softmax"
+        }).apply(pooled);
+        const model = tf.model({ inputs: input, outputs: output });
+        model.compile({
+            optimizer: tf.train.adam(0.01),
+            loss: "sparseCategoricalCrossentropy",
+            metrics: ["accuracy"]
+        });
+        // ===== 4. 学習 =====
+        async function train() {
+            await model.fit(xs, ys, {
+                epochs: 50,
+                verbose: 0
+            });
+            console.log("学習完了");
+        }
+        train();
+        // ===== 5. 予測 =====
+        async function predictEmotion() {
+            const text = document.getElementById("inputText").value;
+            const inputTensor = tf.tensor2d([textToTensor(text)]);
+            const prediction = model.predict(inputTensor);
+            const result = prediction.argMax(-1).dataSync()[0];
+            let emotion = "";
+            if (result === 0) emotion = "😊 ポジティブ";
+            if (result === 1) emotion = "😢 ネガティブ";
+            if (result === 2) emotion = "😐 普通";
+            document.getElementById("result").innerText =
+                "判定結果：" + emotion;
+        }
+    </script>
+</body>
+
+</html>

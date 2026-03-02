@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>お財布マネージャー</title>
+    <style>
+        :root {
+            --main-bg: #f0f2f5;
+            --card-bg: #ffffff;
+            --primary: #932e44;
+            --overlay: rgba(0, 0, 0, 0.6);
+        }
+
+        body {
+            font-family: sans-serif;
+            background: var(--main-bg);
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            position: relative;
+        }
+
+        .card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        header {
+            grid-column: 1 / -1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h2 {
+            margin-top: 0;
+            border-bottom: 2px solid var(--primary);
+            padding-bottom: 5px;
+            font-size: 1.2rem;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.9rem;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        input,
+        select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        .result-display {
+            grid-column: 1 / -1;
+            background: var(--primary);
+            color: white;
+            text-align: center;
+            position: relative;
+        }
+
+        .result-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .week-control {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 5px;
+        }
+
+        .week-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid white;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            width: auto;
+            font-size: 0.8rem;
+            margin: 0;
+        }
+
+        .plan-item {
+            background: #f9f9f9;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+            border-left: 4px solid var(--primary);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+
+        .help-btn {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: white;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            cursor: pointer;
+            border: 2px solid var(--primary);
+        }
+
+        /* モーダル */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--overlay);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            visibility: hidden;
+            opacity: 0;
+            transition: 0.3s;
+        }
+
+        .modal-overlay.show {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .modal {
+            background: white;
+            width: 90%;
+            max-width: 500px;
+            padding: 25px;
+            border-radius: 12px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal h3 {
+            margin-top: 0;
+            color: var(--primary);
+        }
+
+        .modal-close {
+            background: var(--primary);
+            margin-top: 20px;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1 style="font-size: 1.2rem; margin: 0;">お財布マネージャー</h1>
+            <div class="help-btn" onclick="showModal()">?</div>
+        </header>
+        <div class="card result-display">
+
+        </div>
+        <div class="result-grid">
+            <div> <small>1日あたりの自由な予算</small>
+                <div id="dailyBudget" style="font-size: 1.8rem; font-weight: bold;">¥0</div>
+            </div>
+            <div>
+                <div class="week-control"> <button class="week-btn" onclick="changeWeek(-1)">＜</button> <small
+                        id="weekLabel">今週の自由な予算</small> <button class="week-btn" onclick="changeWeek(1)">＞</button>
+                </div>
+                <div id="weeklyBudget" style="font-size: 1.8rem; font-weight: bold;">¥0</div> <button class="week-btn"
+                    style="margin-top:5px; font-size:0.7rem;" onclick="resetWeek()">今日に戻る</button>
+            </div>
+        </div>
+        <p id="calcLogic" style="font-size: 0.75rem; margin-top: 10px; opacity: 0.9;"></p>
+    </div>
+    <div class="card">
+        <h2>1. 基本設定</h2>
+        <div class="input-group"> <label>今月の総予算 (¥)</label> <input type="number" id="totalBudget" value="200000"
+                step="500" oninput="updateAll()"> </div>
+        <div class="input-group"> <label>固定費合計 (¥)</label> <input type="number" id="fixedCost" value="80000" step="500"
+                oninput="updateAll()"> </div>
+        <hr> <label style="font-size: 0.8rem; color: #666;">カテゴリー別単価設定 (500円単位)</label>
+        <div class="result-grid">
+            <div><label>ご飯</label><input type="number" id="price_meal" value="3000" step="500" oninput="updateAll()">
+            </div>
+            <div><label>遊び(半日)</label><input type="number" id="price_half" value="5000" step="500"
+                    oninput="updateAll()"></div>
+            <div><label>遊び(一日)</label><input type="number" id="price_full" value="10000" step="500"
+                    oninput="updateAll()"></div>
+            <div><label>ショッピング</label><input type="number" id="price_shop" value="8000" step="500"
+                    oninput="updateAll()"></div>
+            <div style="grid-column: span 2;"><label>旅行(1日単価)</label><input type="number" id="price_trip" value="7000"
+                    step="500" oninput="updateAll()"></div>
+        </div>
+    </div>
+    <div class="card">
+        <h2>2. 予定の追加</h2>
+        <div class="input-group"> <label>カテゴリー</label> <select id="catSelect" onchange="toggleInputs()">
+                <option value="meal">ご飯</option>
+
+
+                <option value="halfDay">遊び（半日）</option>
+                <option value="fullDay">遊び（一日）</option>
+                <option value="shopping">ショッピング</option>
+                <option value="oshi">推し活</option>
+                <option value="trip">旅行</option>
+                <option value="other">その他</option>
+            </select> </div>
+        <div class="input-group"> <label>日付</label> <input type="date" id="planDate"> </div>
+        <div id="extraInputs">
+            <div id="costInputDiv" style="display:none;" class="input-group"> <label>金額 (¥)</label> <input type="number"
+                    id="inputCost" value="0" step="500"> </div>
+            <div id="tripInputDiv" style="display:none;">
+                <div class="input-group"><label>日数</label><input type="number" id="tripDays" value="1"></div>
+                <div class="input-group"><label>交通費合計 (¥)</label><input type="number" id="tripTransport" value="0"
+                        step="500"></div>
+            </div>
+        </div> <button onclick="addPlan()">予定を追加</button>
+        <h3 style="margin-top:20px; font-size: 1rem;">登録済みの予定</h3>
+        <div id="planList"></div>
+    </div>
+    </div>
+    <div id="helpModal" class="modal-overlay">
+        <div class="modal">
+            <h3>【このアプリについて】</h3>
+            <p style="font-size: 0.9rem; line-height: 1.6;">
+                このアプリは、<b>「予定がある日は、事前に決めた予算で完結する」</b>という考え方に基づいた支出管理ツールです。<br>
+                月末までの残りの日数のうち、予定が入っていない「何もない日」に自由に使えるお金を計算します。 </p>
+            <h3>【使いかた】</h3>
+            <ul style="font-size: 0.85rem; padding-left: 20px; line-height: 1.6;">
+                <li><b>基本設定：</b> 今月の総予算、固定費、各予定のデフォルト単価を入力します。</li>
+                <li><b>予定の追加：</b> これから入っている予定（ご飯、遊び、旅行など）を入力してください。</li>
+                <li><b>予算の確認：</b><br> ・1日あたりの予算： 予定がない日に、今日から1日いくら使えるかを表示します。<br> ・1週間あたりの予算：
+                    今週（月曜〜日曜）のうち、予定がない日に使える総額を表示します。
+                <li><b>週の切り替え：</b> 予算表示の「＜ ＞」で先週や来週の予算も確認できます。</li>
+                </li>
+            </ul>
+            <p style="font-size: 0.85rem; background: #b37d7d; padding: 10px; border-radius: 5px;">
+                <b>※旅行の計算方法</b><br>「(1日単価 × 日数) ＋ 交通費」で算出されます。<br>
+
+            <p> <button class="modal-close" onclick="closeModal()">はじめる</button>
+        </div>
+    </div>
+    <script>
+        let plans = []; let weekOffset = 0; // 週の切り替え用 
+        function showModal() { document.getElementById('helpModal').classList.add('show'); }
+        function closeModal() { document.getElementById('helpModal').classList.remove('show'); } // 【修正点1】±2週間の範囲外に行かないように制限 
+        function changeWeek(n) { const nextOffset = weekOffset + n; if (nextOffset >= -2 && nextOffset <= 2) { weekOffset = nextOffset; updateAll(); } }
+        function resetWeek() { weekOffset = 0; updateAll(); }
+        function toggleInputs() { const cat = document.getElementById('catSelect').value; document.getElementById('costInputDiv').style.display = (cat === 'oshi' || cat === 'other') ? 'block' : 'none'; document.getElementById('tripInputDiv').style.display = (cat === 'trip') ? 'block' : 'none'; }
+        function addPlan() { 
+            const cat = document.getElementById('catSelect').value; 
+            const date = document.getElementById('planDate').value; if (!date) return alert("日付を入れてね！"); let cost = 0, days = 1; if (cat === 'oshi' || cat === 'other') { cost = Number(document.getElementById('inputCost').value); } else if (cat === 'trip') { days = Number(document.getElementById('tripDays').value); cost = (Number(document.getElementById('price_trip').value) * days) + Number(document.getElementById('tripTransport').value); } else { const priceMap = { meal: 'price_meal', halfDay: 'price_half', fullDay: 'price_full', shopping: 'price_shop' }; cost = Number(document.getElementById(priceMap[cat]).value); } plans.push({ cat, date, cost, days }); updateAll(); } function updateAll() {
+            const total = Number(document.getElementById('totalBudget').value); const fixed = Number(document.getElementById('fixedCost').value); const today = new Date();
+            const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate(); const currentDay = today.getDate(); let totalPlanCost = 0, plannedDates = new Set(); plans.forEach(p => { totalPlanCost += p.cost; const d = new Date(p.date); for (let i = 0; i < p.days; i++) { let tmp = new Date(d); tmp.setDate(d.getDate() + i); if (tmp.getMonth() === today.getMonth()) plannedDates.add(tmp.getDate()); } }); let freeDaysCount = 0; for (let d = currentDay; d <= lastDay; d++) { if (!plannedDates.has(d)) freeDaysCount++; } const remainingBudget = total - fixed - totalPlanCost; const daily = freeDaysCount > 0 ? Math.floor(remainingBudget / freeDaysCount) : 0; let weeklyFreeDays = 0; let dayOfWeek = today.getDay(); let diffToMonday = (dayOfWeek === 0 ? 6 : dayOfWeek - 1) - (weekOffset * 7); let mondayOfTargetWeek = new Date(today); mondayOfTargetWeek.setDate(today.getDate() - diffToMonday); for (let i = 0; i < 7; i++) { let target = new Date(mondayOfTargetWeek); target.setDate(mondayOfTargetWeek.getDate() + i); if (target.getMonth() === today.getMonth() && target.getDate() >= currentDay) { if (!plannedDates.has(target.getDate())) weeklyFreeDays++; } } const weekly = daily * weeklyFreeDays; // 【修正点2】ラベル表示の最適化 
+            const labels = { "-2": "先々週", "-1": "先週", "0": "今週", "1": "来週", "2": "再来週" }; const currentLabel = labels[weekOffset] || `${weekOffset}週ずれた予算`; document.getElementById('weekLabel').innerText = `${currentLabel}の自由な予算`; // 【修正点3】ボタンの無効化（制限に達したら半透明にしてクリック不可にする） 
+            const weekBtns = document.querySelectorAll('.week-btn'); // ＜ ボタン 
+            weekBtns[0].style.opacity = (weekOffset <= -2) ? "0.3" : "1"; weekBtns[0].style.pointerEvents = (weekOffset <= -2) ? "none" : "auto"; // ＞ ボタン 
+            weekBtns[1].style.opacity = (weekOffset >= 2) ? "0.3" : "1";
+            weekBtns[1].style.pointerEvents = (weekOffset >= 2) ? "none" : "auto"; document.getElementById('dailyBudget').innerText = `¥${daily.toLocaleString()}`;
+            document.getElementById('weeklyBudget').innerText = `¥${weekly.toLocaleString()}`; document.getElementById('calcLogic').innerText = `月末まで残り${lastDay - currentDay + 1}日中、予定なしは${freeDaysCount}日です。`; const list = document.getElementById('planList'); list.innerHTML = ""; plans.sort((a, b) => new Date(a.date) - new Date(b.date)).forEach((p, index) => { list.innerHTML += `<div class="plan-item"> <span>${p.date} <b>¥${p.cost.toLocaleString()}</b></span> <span style="color:red; cursor:pointer; font-weight:bold;" onclick="removePlan(${index})">削除</span> </div>`; });
+        } function removePlan(index) { plans.splice(index, 1); updateAll(); } window.onload = () => { document.getElementById('planDate').value = new Date().toISOString().split('T')[0]; updateAll(); showModal(); }; </script>
+</body>
+
+</html>

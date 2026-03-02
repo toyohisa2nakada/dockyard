@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diet Counter Prototype</title>
+    <style>
+        :root {
+            --primary-color: #2ecc71;
+            --secondary-color: #e74c3c;
+            --bg-color: #f4f7f6;
+            --card-bg: #ffffff;
+            --warning-bg: #fff5f5;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg-color);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 500px;
+        }
+
+        .counter-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        /* 上限到達時のアニメーションとスタイル */
+        .counter-card.limit-reached {
+            background-color: var(--warning-bg);
+            border-color: var(--secondary-color);
+            animation: shake 0.5s;
+        }
+
+        @keyframes shake {
+
+            0%,
+            100% {
+                transform: translateX(0);
+            }
+
+            25% {
+                transform: translateX(-5px);
+            }
+
+            75% {
+                transform: translateX(5px);
+            }
+        }
+
+        .count-display {
+            font-size: 1.8rem;
+            font-weight: bold;
+            margin-right: 15px;
+        }
+
+        .limit-reached .count-display {
+            color: var(--secondary-color);
+        }
+
+        button.add-btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 12px 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .limit-reached button.add-btn {
+            background-color: var(--secondary-color);
+        }
+
+        .history {
+            margin-top: 25px;
+            width: 100%;
+            background: #fff;
+            border-radius: 12px;
+            padding: 15px;
+        }
+
+        .history-item {
+            border-bottom: 1px dotted #eee;
+            padding: 8px 0;
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Diet Counter</h1>
+    <div class="container" id="app">
+        <div id="cards-container"></div>
+        <div class="history">
+            <h4>実行履歴</h4>
+            <ul id="history-list"></ul>
+        </div>
+    </div>
+    <script>
+        const config = [
+            { id: 'drink', label: '飲み会', limit: 2 },
+            { id: 'fried', label: '揚げ物', limit: 1 },
+            { id: 'juice', label: 'ジュース', limit: 1 },
+            { id: 'ramen', label: 'ラーメン', limit: 1 },
+            { id: 'cheat', label: '自由食', limit: 1 }
+        ];
+        const deterrentMessages = [
+            "まだ食べて太るの？",
+            "その一口が、明日の体重計で後悔に変わりますよ。",
+            "今のあなたは、空腹ではなく『妥協』していませんか？",
+            "本当に食べるんですか？デブ街道まっしぐらですよ。"
+        ];
+        let stats = JSON.parse(localStorage.getItem('dietStatsFinal')) || { counts: { drink: 0, fried: 0, juice: 0, ramen: 0, cheat: 0 }, logs: [] };
+        function render() {
+            const container = document.getElementById('cards-container');
+            container.innerHTML = '';
+            config.forEach(item => {
+                const count = stats.counts[item.id];
+                const card = document.createElement('div');
+                card.className = `counter-card ${count >= item.limit ? 'limit-reached' : ''}`;
+                card.innerHTML = `
+<div><h3>${item.label}</h3><span>上限: ${item.limit}回</span></div>
+<div><span class="count-display">${count}</span><button class="add-btn" onclick="add('${item.id}', '${item.label}', ${item.limit})">記録</button></div>
+`;
+                container.appendChild(card);
+            });
+            document.getElementById('history-list').innerHTML = stats.logs.map(log => `<li class="history-item"><span>${log.label}</span><span>${log.time}</span></li>`).join('');
+        }
+        function add(id, label, limit) {
+            if (stats.counts[id] >= limit) {
+                const msg = deterrentMessages[Math.floor(Math.random() * deterrentMessages.length)];
+                if (!confirm(msg)) return;
+            }
+            const now = new Date();
+            stats.counts[id]++;
+            stats.logs.unshift({ time: `${now.getMonth() + 1}/${now.getDate()} ${now.getHours()}:${now.getMinutes()}`, label });
+            localStorage.setItem('dietStatsFinal', JSON.stringify(stats));
+            render();
+        }
+        render();
+    </script>
+</body>
+
+</html>

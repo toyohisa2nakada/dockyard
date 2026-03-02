@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nutr!M!!</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: "Helvetica Neue", sans-serif;
+            /* 背景画像 */
+            background-image: url("https://png.pngtree.com/background/20250115/original/pngtree-a-frame-with-food-picture-image_13244535.jpg");
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            /* 暗めのオーバーレイで文字を読みやすく */
+            background-color: rgba(0, 0, 0, 0.65);
+            background-blend-mode: overlay;
+            color: #eaeaea;
+        }
+
+        .screen {
+            display: none;
+            min-height: 100vh;
+            padding: 24px;
+            box-sizing: border-box;
+            position: relative;
+            z-index: 10;
+            overflow-y: auto;
+        }
+
+        .active {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        h1 {
+            font-size: 28px;
+            text-align: center;
+            margin-top: 40px;
+        }
+
+        p {
+            text-align: center;
+            opacity: 0.9;
+        }
+
+        button {
+            pointer-events: auto;
+            width: 100%;
+            padding: 14px;
+            margin-top: 24px;
+            background: #1e90ff;
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 16px;
+            margin-top: 16px;
+        }
+
+        label {
+            display: block;
+            margin: 8px 0;
+        }
+
+        .butterfly {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 60px;
+            opacity: 0.8;
+            animation: float 4s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-12px);
+            }
+
+            100% {
+                transform: translateY(0);
+            }
+        }
+
+        .coin {
+            margin-top: 20px;
+            font-size: 18px;
+            text-align: center;
+            color: #9fd3ff;
+        }
+
+        #rewardText {
+            margin-top: 12px;
+            text-align: center;
+            font-size: 14px;
+            color: #cce6ff;
+        }
+
+        .scroll-hint {
+            margin-top: 32px;
+            margin-bottom: 40px;
+            font-size: 13px;
+            opacity: 0.7;
+            text-align: center;
+            animation: fadeMove 2s ease-in-out infinite;
+        }
+
+        @keyframes fadeMove {
+            0% {
+                opacity: 0.4;
+                transform: translateY(0);
+            }
+
+            50% {
+                opacity: 0.8;
+                transform: translateY(6px);
+            }
+
+            100% {
+                opacity: 0.4;
+                transform: translateY(0);
+            }
+        }
+
+        .reward-fixed-hint {
+            position: fixed;
+            bottom: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 8px 14px;
+            font-size: 13px;
+            background: rgba(30, 144, 255, 0.15);
+            border: 1px dashed #3a6ea5;
+            border-radius: 12px;
+            color: #cce6ff;
+            opacity: 0.9;
+            z-index: 100;
+            pointer-events: none;
+        }
+    </style>
+</head>
+
+<body> <!-- トップ画面 -->
+    <div id="screen1" class="screen active">
+        <h1>Nutr!M!!</h1>
+        <p>おなかすいてるんじゃない？<br>今、何食べたいの？</p> <button onclick="goToInput()">スタート</button>
+    </div> <!-- 入力画面 -->
+    <div id="screen2" class="screen">
+        <h1>いまの状態</h1>
+        <div class="card"> <strong>食べたいもの</strong> <label><input type="checkbox" value="sweet"> 甘い</label> <label><input
+                    type="checkbox" value="salty"> しょっぱい</label> <label><input type="checkbox" value="rich">
+                こってり</label> <label><input type="checkbox" value="light"> さっぱり</label> </div>
+        <div class="card"> <strong>今の状態</strong> <label><input type="checkbox" value="tired"> 疲れている</label>
+            <label><input type="checkbox" value="stress"> ストレスがある</label> <label><input type="checkbox" value="late">
+                夜遅い</label> <label><input type="checkbox" value="down"> 気分が落ちている</label> </div> <button
+            onclick="analyze()">結果を見る</button>
+    </div> <!-- 結果画面 -->
+    <div id="screen3" class="screen">
+        <h1>分析結果</h1>
+        <p id="resultText"></p>
+        <p id="nutrientText"></p>
+        <div class="coin">🍎 フードコイン +3 獲得！</div>
+        <div id="totalCoin" class="coin"></div> <button onclick="location.reload()">もう一度</button> <button
+            onclick="showLogs()">ログを見る</button>
+        <pre id="logArea" style="white-space: pre-wrap; margin-top:16px; font-size:14px;"></pre>
+    </div>
+    <div class="card"> <strong>🎁 ご褒美</strong>
+        <p>フードコインを使って、ちょっとしたご褒美を解放できます</p> <button onclick="getReward()">ご褒美をもらう（5コイン）</button>
+        <p id="rewardText"></p>
+    </div>
+    <div class="card"> <strong>🛒 ご褒美ショップ</strong>
+        <p>今の気分に合うご褒美を選んでね</p> <button onclick="buyReward(3)">☕ ひと息つく（3コイン）</button> <button onclick="buyReward(5)">🛁
+            ゆっくり休む（5コイン）</button> <button onclick="buyReward(8)">🌙 今日は早く寝ていい（8コイン）</button>
+        <p id="shopMessage"></p>
+    </div>
+    <script> function goToInput() { document.getElementById("screen1").classList.remove("active"); document.getElementById("screen2").classList.add("active"); } function analyze() {
+            const checked = document.querySelectorAll("input:checked"); const foods = []; const states = []; checked.forEach(c => { if (["sweet", "salty", "rich", "light"].includes(c.value)) { foods.push(c.value); } else { states.push(c.value); } }); let text = "今回の入力から、"; let nutrient = ""; if (states.includes("stress")) {
+                text += "ストレスによるエネルギー欲求が高い状態と考えられます。"; nutrient = "不足しがちな栄養素：マグネシウム・ビタミンB群";
+            } else if (states.includes("tired")) { text += "疲労回復を求めている状態と考えられます。"; nutrient = "不足しがちな栄養素：鉄分・たんぱく質"; } else { text += "軽い気分転換を求めている状態と考えられます。"; nutrient = "不足しがちな栄養素：ビタミンC"; }
+            // ===== ログ保存処理 ===== 
+            const log = { date: new Date().toLocaleString(), foods: foods, states: states, result: text }; const logs = JSON.parse(localStorage.getItem("nutrim_logs")) || []; logs.push(log); localStorage.setItem("nutrim_logs", JSON.stringify(logs));
+            // ===== コイン加算処理 ===== 
+            let coin = Number(localStorage.getItem("nutrim_coin")) || 0; coin += 3; localStorage.setItem("nutrim_coin", coin);
+            // ========================== 
+            // ======================= 
+            document.getElementById("resultText").innerText = text; document.getElementById("nutrientText").innerText = nutrient; document.getElementById("screen2").classList.remove("active"); document.getElementById("screen3").classList.add("active");
+        } function showLogs() { const logs = JSON.parse(localStorage.getItem("nutrim_logs")) || []; let text = ""; logs.forEach((log, index) => { text += `【${index + 1}回目】\n`; text += `日時：${log.date}\n`; text += `食べたい：${log.foods.join(", ")}\n`; text += `状態：${log.states.join(", ")}\n`; text += `${log.result}\n\n`; }); document.getElementById("logArea").innerText = text || "まだログがありません"; } function showCoin() { const coin = Number(localStorage.getItem("nutrim_coin")) || 0; document.getElementById("totalCoin").innerText = `🍎 現在のフードコイン：${coin}`; }
+        showCoin(); function getReward() {
+            let coin = Number(localStorage.getItem("nutrim_coin")) || 0; if (coin < 5) { document.getElementById("rewardText").innerText = "コインが足りません。もう少し記録してみましょう🌱"; return; } coin -= 5; localStorage.setItem("nutrim_coin", coin); const rewards = ["今日は無理しなくていい日。早めに休もう。", "温かい飲み物を飲んで、深呼吸してみて。", "頑張ってる自分をちゃんと褒めてあげて。", "スマホを置いて、1分だけ目を閉じてみよう。"]; const message = rewards[Math.floor(Math.random() * rewards.length)]; document.getElementById("rewardText").innerText = message; showCoin();
+            // コイン表示更新 
+        } function buyReward(cost) {
+            let coin = Number(localStorage.getItem("nutrim_coin")) || 0; const messageArea = document.getElementById("shopMessage"); if (coin < cost) { messageArea.innerText = "コインが足りません。もう少し記録してみましょう🌱"; return; } coin -= cost; localStorage.setItem("nutrim_coin", coin); const rewardMap = { 3: "温かい飲み物で、少し肩の力を抜こう。", 5: "今日は頑張った日。ゆっくり休んでね。", 8: "もう十分やったよ。今日は早く寝てOK。" }; messageArea.innerText = rewardMap[cost]; showCoin();
+            // コイン表示更新 
+        } </script>
+    <div class="reward-fixed-hint"> ↓　下にスクロールすると何かいいことがあるかも？ </div>
+</body>
+
+</html>

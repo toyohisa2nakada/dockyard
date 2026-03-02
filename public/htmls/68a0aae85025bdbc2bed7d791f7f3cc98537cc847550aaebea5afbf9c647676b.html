@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Maze Worm Escape</title>
+    <style>
+        body {
+            background: #222;
+            margin: 0;
+        }
+
+        canvas {
+            display: block;
+            margin: auto;
+            background: #eee;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="game" width="640" height="640"></canvas>
+    <script>
+        const canvas = document.getElementById("game");
+        const ctx = canvas.getContext("2d");
+        const tileSize = 32;
+        const size = 20;
+        // 0:道 1:壁 2:ゴール
+        const maze = [
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1],
+            [1, 0, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1],
+            [1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1],
+            [1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 0, 1],
+            [1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1],
+            [1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 0, 1, 0, 1],
+            [1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1],
+            [1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1],
+            [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 1],
+            [1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1],
+            [1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1],
+            [1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1],
+            [1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1],
+            [1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1],
+            [1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1],
+            [1, 0, 1, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1],
+            [1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 2, 1],
+            [1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+        ];
+        let player, worm, gameOver, clear;
+        const keys = {};
+        function resetGame() {
+            player = { x: 1, y: 1 };
+            worm = { x: 18, y: 1, speed: 0.08, wave: 0 };
+            gameOver = false;
+            clear = false;
+        }
+        resetGame();
+        document.addEventListener("keydown", e => {
+            keys[e.key] = true;
+            if (e.key === "Enter" && (gameOver || clear)) resetGame();
+        });
+        document.addEventListener("keyup", e => keys[e.key] = false);
+        function canMove(x, y) {
+            return maze[y] && maze[y][x] !== 1;
+        }
+        function update() {
+            if (gameOver || clear) return;
+            let nx = player.x;
+            let ny = player.y;
+            if (keys["ArrowUp"]) ny--;
+            if (keys["ArrowDown"]) ny++;
+            if (keys["ArrowLeft"]) nx--;
+            if (keys["ArrowRight"]) nx++;
+            if (canMove(nx, ny)) {
+                player.x = nx;
+                player.y = ny;
+            }
+            if (maze[player.y][player.x] === 2) clear = true;
+            // ハンター高速追尾
+            worm.wave += 0.15;
+            if (Math.random() < 0.9) {
+                if (player.x > worm.x) worm.x += worm.speed;
+                if (player.x < worm.x) worm.x -= worm.speed;
+                if (player.y > worm.y) worm.y += worm.speed;
+                if (player.y < worm.y) worm.y -= worm.speed;
+            }
+            if (Math.abs(player.x - worm.x) < 0.4 &&
+                Math.abs(player.y - worm.y) < 0.4) {
+                gameOver = true;
+            }
+        }
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for (let y = 0; y < size; y++) {
+                for (let x = 0; x < size; x++) {
+                    ctx.fillStyle =
+                        maze[y][x] === 1 ? "#333" :
+                            maze[y][x] === 2 ? "gold" : "#ddd";
+                    ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
+                }
+            }
+            // プレイヤー
+            ctx.fillStyle = "blue";
+            ctx.beginPath();
+            ctx.arc(
+                player.x * tileSize + tileSize / 2,
+                player.y * tileSize + tileSize / 2,
+                12, 0, Math.PI * 2);
+            ctx.fill();
+            // ミミズ
+            ctx.fillStyle = "green";
+            for (let i = 0; i < 5; i++) {
+                ctx.beginPath();
+                ctx.arc(
+                    worm.x * tileSize + tileSize / 2 + Math.sin(worm.wave + i) * 6,
+                    worm.y * tileSize + tileSize / 2 + Math.cos(worm.wave + i) * 6,
+                    10 - i * 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            if (gameOver) {
+                ctx.fillStyle = "red";
+                ctx.font = "32px sans-serif";
+                ctx.fillText("GAME OVER", 220, 300);
+                ctx.fillText("ENTERで再挑戦", 200, 340);
+            }
+            if (clear) {
+                ctx.fillStyle = "green";
+                ctx.font = "32px sans-serif";
+                ctx.fillText("CLEAR!", 260, 300);
+                ctx.fillText("ENTERで再プレイ", 190, 340);
+            }
+        }
+        function loop() {
+            update();
+            draw();
+            requestAnimationFrame(loop);
+        }
+        loop();
+    </script>
+</body>
+
+</html>
